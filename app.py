@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests as req
 import asyncio
+import os
 import tec, red, em, amazon
 
 app = Flask(__name__)
@@ -145,3 +146,4 @@ async def check_card():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+
