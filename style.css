@@ -1,0 +1,205 @@
+/* Reset básico */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background: #1e1e2f;
+    color: #eee;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    color: #60c5ba;
+    text-shadow: 0 0 8px #60c5ba;
+}
+
+textarea {
+    width: 600px;
+    max-width: 90vw;
+    height: 160px;
+    border-radius: 8px;
+    border: 2px solid #60c5ba;
+    background: #27293d;
+    color: #eee;
+    padding: 15px;
+    font-size: 1.1rem;
+    resize: vertical;
+    box-shadow: inset 0 0 8px #3f5f61;
+    transition: border-color 0.3s ease;
+    margin-bottom: 20px;
+}
+textarea:focus {
+    outline: none;
+    border-color: #43e0d9;
+    box-shadow: 0 0 12px #43e0d9;
+}
+
+button {
+    background-color: #60c5ba;
+    border: none;
+    color: #1e1e2f;
+    padding: 12px 30px;
+    margin: 0 10px 20px 10px;
+    border-radius: 25px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(96, 197, 186, 0.5);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    user-select: none;
+}
+button:hover:not(:disabled) {
+    background-color: #43e0d9;
+    color: #111;
+}
+button:disabled {
+    background-color: #999;
+    cursor: not-allowed;
+}
+
+/* Contenedor principal para outputs */
+.outputs-container {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 960px;
+}
+#ccn_output div {
+    color: #43e0d9;
+    font-weight: bold;
+}
+#progressContainer {
+    margin-top: 20px;
+}
+
+#progressBar {
+    background: linear-gradient(90deg, #43e0d9, #60c5ba);
+}
+
+
+.funds h3 {
+    border-color: #f5a623;
+    color: #f5a623;
+    text-shadow: 0 0 8px #f5a623;
+}
+
+/* Cada bloque output */
+.output {
+    flex: 1 1 300px;
+    background: #27293d;
+    border-radius: 12px;
+    padding: 15px 20px;
+    box-shadow: 0 0 12px rgba(96, 197, 186, 0.4);
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+}
+/* Estilo moderno para el select */
+#gateway_select {
+    appearance: none; /* Quitar estilo nativo */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #27293d;
+    color: #eee;
+    padding: 12px 40px 12px 15px;
+    font-size: 1.1rem;
+    border: 2px solid #60c5ba;
+    border-radius: 25px;
+    box-shadow: inset 0 0 8px #3f5f61;
+    cursor: pointer;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    width: 220px;
+    outline: none;
+}
+
+/* Al hacer hover */
+#gateway_select:hover, 
+#gateway_select:focus {
+    border-color: #43e0d9;
+    box-shadow: 0 0 12px #43e0d9;
+    outline: none;
+}
+
+/* Agregar flecha personalizada */
+#gateway_select {
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg width='14' height='10' viewBox='0 0 14 10' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L7 7L13 1' stroke='%23eee' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px 10px;
+}
+
+
+.output h3 {
+    font-size: 1.8rem;
+    margin-bottom: 15px;
+    border-bottom: 2px solid;
+    padding-bottom: 6px;
+    user-select: none;
+}
+
+/* Colores según tipo */
+.live h3 {
+    border-color: #39d353;
+    color: #39d353;
+    text-shadow: 0 0 8px #39d353;
+}
+.dead h3 {
+    border-color: #d93939;
+    color: #d93939;
+    text-shadow: 0 0 8px #d93939;
+}
+.error h3 {
+    border-color: #f2c94c;
+    color: #f2c94c;
+    text-shadow: 0 0 8px #f2c94c;
+}
+
+/* Contenedor para mensajes */
+#live_output, #dead_output, #error_output {
+    flex-grow: 1;
+    overflow-y: auto;
+    font-size: 1.05rem;
+    line-height: 1.4;
+    color: #ddd;
+    white-space: pre-line;
+}
+
+/* Scroll personalizado */
+#live_output::-webkit-scrollbar,
+#dead_output::-webkit-scrollbar,
+#error_output::-webkit-scrollbar {
+    width: 8px;
+}
+#live_output::-webkit-scrollbar-thumb,
+#dead_output::-webkit-scrollbar-thumb,
+#error_output::-webkit-scrollbar-thumb {
+    background: rgba(96, 197, 186, 0.6);
+    border-radius: 4px;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+    textarea {
+        height: 130px;
+    }
+    .outputs-container {
+        flex-direction: column;
+        max-width: 90vw;
+    }
+    .output {
+        min-height: 200px;
+    }
+}

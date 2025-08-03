@@ -1,0 +1,105 @@
+body {
+  background: #121212;
+  color: #eee;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+}
+
+.container {
+  background: #1f1f1f;
+  padding: 30px 40px;
+  border-radius: 10px;
+  width: 350px;
+  box-shadow: 0 0 15px rgba(67, 224, 217, 0.7);
+}
+
+h2 {
+  margin-bottom: 25px;
+  text-align: center;
+  color: #43e0d9;
+}
+
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 18px;
+  border: none;
+  border-radius: 6px;
+  background: #333;
+  color: #eee;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+input::placeholder {
+  color: #aaa;
+}
+
+button {
+  width: 100%;
+  background-color: #43e0d9;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #121212;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #36bfc1;
+}
+
+.flash-messages {
+  list-style-type: none;
+  padding: 0;
+  margin-bottom: 20px;
+}
+
+.flash-messages li {
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.flash-messages li.error {
+  background-color: #ff4c4c;
+  color: #fff;
+}
+
+.flash-messages li.success {
+  background-color: #4caf50;
+  color: #fff;
+}
+
+p {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 14px;
+  color: #aaa;
+}
+
+a {
+  color: #43e0d9;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a:hover {
+  text-decoration: underline;
+}

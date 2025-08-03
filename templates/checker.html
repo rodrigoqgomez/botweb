@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Gateway Selector</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>Gateway Selector</h2>
+
+<textarea id="ccs_input" placeholder="Pega aquí las CCs (una por línea)"></textarea><br>
+
+<div>
+    <select id="gateway_select">
+        <option value="TEC">TEC</option>
+        <option value="RED">RED</option>
+        <option value="EM">EM</option>
+        <option value="AMAZON">AMAZON</option>
+    </select><br>
+    <div id="cookie_container" style="display: none; margin-top: 10px;">
+        <textarea id="cookie_input" placeholder="Pega aquí tu Cookie de Amazon"></textarea><br>
+        <button id="save_cookie">Guardar Cookie</button><br>
+    </div>
+    <button id="startBtn">Iniciar Gateway</button>
+    <button id="stopBtn">Detener</button>
+</div>
+
+<div id="progressContainer" style="width: 90%; max-width: 600px; margin-top: 20px; display: none;">
+    <div style="margin-bottom: 10px; color: #eee;" id="progressText">Procesando...</div>
+    <div style="background: #444; width: 100%; height: 20px; border-radius: 10px; overflow: hidden;">
+        <div id="progressBar" style="background: #43e0d9; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+    </div>
+</div>
+
+<div class="outputs-container">
+    <div class="output live"><h3>LIVE</h3><div id="live_output"></div></div>
+    <div class="output dead"><h3>DEAD</h3><div id="dead_output"></div></div>
+    <div class="output funds"><h3>FONDOS INSUFICIENTES</h3><div id="funds_output"></div></div>
+    <div class="output error"><h3>ERROR</h3><div id="error_output"></div></div>
+</div>
+
+<script>
+    let isRunning = false;
+    let amazonCookie = "";
+
+    // Mostrar el campo de Cookie si selecciona AMAZON
+    document.getElementById('gateway_select').addEventListener('change', () => {
+        const gateway = document.getElementById('gateway_select').value;
+        const cookieContainer = document.getElementById('cookie_container');
+        if (gateway === 'AMAZON') {
+            cookieContainer.style.display = 'block';
+        } else {
+            cookieContainer.style.display = 'none';
+        }
+    });
+
+    document.getElementById('save_cookie').addEventListener('click', () => {
+        const cookieValue = document.getElementById('cookie_input').value.trim();
+        if (!cookieValue) {
+            alert('⚠️ Pega tu cookie.');
+            return;
+        }
+        amazonCookie = cookieValue;
+        alert('✅ Cookie guardada localmente.');
+    });
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+        const ccsInput = document.getElementById('ccs_input').value.trim();
+        if (ccsInput === '') {
+            alert('⚠️ Proporciona algunas CCs para comenzar.');
+            return;
+        }
+        const gateway = document.getElementById('gateway_select').value;
+        if (gateway === 'AMAZON' && !amazonCookie) {
+            alert('⚠️ Debes guardar la cookie de Amazon antes de continuar.');
+            return;
+        }
+        if (isRunning) return;
+        isRunning = true;
+        startChecking();
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', () => {
+        isRunning = false;
+    });
+
+    async function startChecking() {
+        const ccs = document.getElementById('ccs_input').value.trim().split('\n').filter(cc => cc.trim() !== '');
+        const gateway = document.getElementById('gateway_select').value;
+        const liveOutput = document.getElementById('live_output');
+        const deadOutput = document.getElementById('dead_output');
+        const fundsOutput = document.getElementById('funds_output');
+        const errorOutput = document.getElementById('error_output');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+
+        liveOutput.innerHTML = '';
+        deadOutput.innerHTML = '';
+        fundsOutput.innerHTML = '';
+        errorOutput.innerHTML = '';
+
+        progressContainer.style.display = 'block';
+        progressText.innerText = `Procesando 0 de ${ccs.length}...`;
+        progressBar.style.width = '0%';
+
+        for (let i = 0; i < ccs.length; i++) {
+            if (!isRunning) break;
+            const cc = ccs[i].trim();
+
+            const result = await checkGateway(cc, gateway);
+
+            if (result.status === 'live') {
+                liveOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else if (result.status === 'dead') {
+                deadOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else if (result.status === 'insufficient_funds') {
+                fundsOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else {
+                errorOutput.innerHTML += `<div><strong>${result.cc}</strong> - ${result.message}</div>`;
+            }
+
+            let progress = Math.round(((i + 1) / ccs.length) * 100);
+            progressBar.style.width = `${progress}%`;
+            progressText.innerText = `Procesando ${i + 1} de ${ccs.length}...`;
+
+            await sleep(500);
+        }
+
+        isRunning = false;
+        progressText.innerText = '✅ Proceso finalizado';
+    }
+
+    async function checkGateway(cc, gateway) {
+        try {
+            const response = await fetch('http://localhost:5000/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cc: cc, gateway: gateway, cookie: amazonCookie })
+            });
+            return await response.json();
+        } catch (err) {
+            return { status: 'error', message: `Error de conexión: ${err.message}`, cc: cc };
+        }
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+</script>
+
+</body>
+</html>
