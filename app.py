@@ -42,6 +42,7 @@ def create_tables():
 @app.route('/')
 def index():
     if 'user_id' in session:
+        return "✅ Railway me está cargando bien."
         return redirect(url_for('dashboard'))
     return render_template('index.html')  # Página de login
 
@@ -154,6 +155,7 @@ def check_card():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
