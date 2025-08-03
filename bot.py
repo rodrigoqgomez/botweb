@@ -5,7 +5,7 @@ from app import db, Key, app
 import random
 import string
 
-BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
+BOT_TOKEN = '8277065108:AAE7-D3B5U20hPxyiQ4l2LgSilxmoovzreI'
 ADMIN_ID = 846983753  # Tu ID de Telegram
 
 async def genkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -33,3 +33,4 @@ async def start_bot():
 
     # NO cierres el loop, solo espera hasta que terminen
     await app.updater.start_polling()
+
