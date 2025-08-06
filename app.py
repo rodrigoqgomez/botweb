@@ -98,15 +98,27 @@ def register():
         return redirect(url_for('index'))
     return render_template('register.html')
 
-@app.route('/login', methods=['POST'])
-def login():
-    username = request.form['username']
-    password = request.form['password']
-    user = User.query.filter_by(username=username).first()
-    if user and user.check_password(password):
-        session['user_id'] = user.id
-        return redirect(url_for('dashboard'))
-    return 'Usuario o contraseña incorrectos'
+def init_owner_and_key():
+    try:
+        db.session.rollback()  # Limpia cualquier cambio pendiente
+
+        owner = User.query.filter_by(username='owner1').first()
+        if not owner:
+            owner = User(username='owner1', role='owner')
+            owner.set_password('Saiper123')  # Esto guarda el hash
+            db.session.add(owner)
+            db.session.commit()
+
+        owner_key = Key.query.filter_by(key='owner_key').first()
+        if not owner_key:
+            owner_key = Key(key='owner_key', used=True, expires_at=None)
+            db.session.add(owner_key)
+            db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error inicializando owner y owner_key: {e}")
+
 
 @app.route('/dashboard')
 def dashboard():
@@ -246,10 +258,14 @@ def ping():
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # Crea tablas si no existen
-        init_owner_and_key()  # Inicializa owner y owner_key si no existen
+        db.create_all()
+        print("Creando owner y owner_key si no existen...")
+        init_owner_and_key()
+        print("Proceso de inicialización terminado.")
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
+
 
 
 
