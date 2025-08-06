@@ -43,6 +43,10 @@
 <div style="margin-top:20px;" id="configPanel" hidden>
     <input type="text" id="telegram_id_input" placeholder="Tu ID de Telegram">
     <button id="save_telegram_id_btn">Guardar ID</button>
+    <br><br>
+    <input type="text" id="redeem_key_input" placeholder="Canjear Nueva Key">
+    <button id="redeem_key_btn">Canjear Key</button>
+    <br><br>
     <button id="logoutBtn">Cerrar Sesión</button>
 </div>
 
@@ -86,6 +90,19 @@
         });
         const data = await res.json();
         alert(data.message);
+    });
+
+    document.getElementById('redeem_key_btn').addEventListener('click', async () => {
+        const keyInput = document.getElementById('redeem_key_input').value.trim();
+        if (!keyInput) return alert('Ingresa una key válida.');
+        const res = await fetch('/redeem_key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: keyInput })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if (data.status === 'success') location.reload();
     });
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
