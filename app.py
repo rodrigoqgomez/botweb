@@ -127,6 +127,22 @@ def save_telegram_id():
     db.session.commit()
     return jsonify({'status': 'success', 'message': 'Telegram ID guardado correctamente.'})
 
+@app.route('/redeem_key', methods=['POST'])
+def redeem_key():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
+
+    key_input = request.json.get('key').strip()
+    key_obj = Key.query.filter_by(key=key_input, used=False).first()
+    if not key_obj or key_obj.expires_at < datetime.utcnow():
+        return jsonify({'status': 'error', 'message': 'La key es inválida o ya expiró.'}), 400
+
+    user = User.query.get(session['user_id'])
+    user.key = key_input
+    key_obj.used = True
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': 'Key canjeada correctamente.'})
+
 @app.route('/generate_key', methods=['POST'])
 def generate_key():
     if 'user_id' not in session:
@@ -204,7 +220,6 @@ def check_card():
             result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
 
         if result['status'] == 'live':
-            enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", OWNER_TELEGRAM_ID)
             telegram_ids = [user.telegram_id] if user.telegram_id else []
             enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", telegram_ids)
 
