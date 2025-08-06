@@ -103,7 +103,7 @@ def login():
     username = request.form['username']
     password = request.form['password']
     user = User.query.filter_by(username=username).first()
-    if user and check_password_hash(user.password_hash, password):
+    if user and user.check_password(password):
         session['user_id'] = user.id
         return redirect(url_for('dashboard'))
     return 'Usuario o contraseña incorrectos'
@@ -250,6 +250,7 @@ if __name__ == '__main__':
         init_owner_and_key()  # Inicializa owner y owner_key si no existen
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
