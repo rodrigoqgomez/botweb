@@ -32,7 +32,7 @@ class User(db.Model):
 
 class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(50), unique=True, nullable=False)
+    key = db.Column(db.String(128), unique=True, nullable=False)  # Cambiado a 128
     used = db.Column(db.Boolean, default=False)
     expires_at = db.Column(db.DateTime, nullable=True)
 
@@ -253,3 +253,4 @@ if __name__ == '__main__':
         init_owner_and_key()  # Inicializa owner y owner_key si no existen
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
