@@ -20,8 +20,8 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)  # Subir a 256 o más
-    key = db.Column(db.String(50), db.ForeignKey('key.key'), nullable=True)
+    password_hash = db.Column(db.String(512), nullable=False)  # AUMENTADO a 512
+    key = db.Column(db.String(128), db.ForeignKey('key.key'), nullable=True)  # AUMENTADO a 128
     telegram_id = db.Column(db.String(20), nullable=True)
     role = db.Column(db.String(10), default='user')
 
@@ -32,9 +32,10 @@ class User(db.Model):
 
 class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(128), unique=True, nullable=False)  # Cambiado a 128
+    key = db.Column(db.String(128), unique=True, nullable=False)  # AUMENTADO a 128
     used = db.Column(db.Boolean, default=False)
     expires_at = db.Column(db.DateTime, nullable=True)
+
 
 # Inicializar owner y owner_key si no existen
 def init_owner_and_key():
@@ -258,12 +259,22 @@ def ping():
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        print("Eliminando tablas existentes...")
+        db.drop_all()  # BORRA TODAS LAS TABLAS de la base de datos
+        print("Tablas eliminadas.")
+
+        print("Creando tablas nuevamente...")
+        db.create_all()  # CREA LAS TABLAS según los modelos actuales
+        print("Tablas creadas.")
+
         print("Creando owner y owner_key si no existen...")
-        init_owner_and_key()
+        init_owner_and_key()  # Inicializa el usuario owner y la key
         print("Proceso de inicialización terminado.")
+
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
+
 
 
 
