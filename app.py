@@ -38,28 +38,25 @@ class Key(db.Model):
 
 # Inicializar owner y owner_key si no existen
 def init_owner_and_key():
-    owner = User.query.filter_by(username='owner').first()
-    if not owner:
-        owner = User(
-            username='owner',
-            telegram_id='846983753',
-            role='owner'
-        )
-        owner.set_password('Saiper123')
-        db.session.add(owner)
-        print("Usuario owner creado.")
+    try:
+        db.session.rollback()  # Limpia cualquier cambio pendiente
 
-    owner_key = Key.query.filter_by(key='owner_key').first()
-    if not owner_key:
-        owner_key = Key(
-            key='owner_key',
-            used=True,
-            expires_at=None
-        )
-        db.session.add(owner_key)
-        print("Key owner_key creada.")
+        owner = User.query.filter_by(username='owner').first()
+        if not owner:
+            owner = User(username='owner', role='owner')
+            owner.set_password('Saiper123')
+            db.session.add(owner)
+            db.session.commit()
 
-    db.session.commit()
+        owner_key = Key.query.filter_by(key='owner_key').first()
+        if not owner_key:
+            owner_key = Key(key='owner_key', used=True, expires_at=None)
+            db.session.add(owner_key)
+            db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error inicializando owner y owner_key: {e}")
 
 # RUTAS
 @app.route('/')
@@ -253,4 +250,5 @@ if __name__ == '__main__':
         init_owner_and_key()  # Inicializa owner y owner_key si no existen
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
