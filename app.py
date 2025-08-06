@@ -259,13 +259,7 @@ def ping():
 
 if __name__ == '__main__':
     with app.app_context():
-        print("Eliminando tablas existentes...")
-        db.drop_all()  # BORRA TODAS LAS TABLAS de la base de datos
-        print("Tablas eliminadas.")
-
-        print("Creando tablas nuevamente...")
-        db.create_all()  # CREA LAS TABLAS según los modelos actuales
-        print("Tablas creadas.")
+        
 
         print("Creando owner y owner_key si no existen...")
         init_owner_and_key()  # Inicializa el usuario owner y la key
@@ -273,6 +267,7 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
