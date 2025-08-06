@@ -20,10 +20,11 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)  # Subir a 256 o más
     key = db.Column(db.String(50), db.ForeignKey('key.key'), nullable=True)
     telegram_id = db.Column(db.String(20), nullable=True)
     role = db.Column(db.String(10), default='user')
+
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -238,5 +239,6 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
