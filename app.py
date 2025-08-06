@@ -41,9 +41,9 @@ def init_owner_and_key():
     try:
         db.session.rollback()  # Limpia cualquier cambio pendiente
 
-        owner = User.query.filter_by(username='owner').first()
+        owner = User.query.filter_by(username='owner1').first()  # Cambiado a owner1
         if not owner:
-            owner = User(username='owner', role='owner')
+            owner = User(username='owner1', role='owner')        # Cambiado a owner1
             owner.set_password('Saiper123')
             db.session.add(owner)
             db.session.commit()
@@ -250,5 +250,6 @@ if __name__ == '__main__':
         init_owner_and_key()  # Inicializa owner y owner_key si no existen
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
