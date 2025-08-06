@@ -58,6 +58,21 @@ def init_owner_and_key():
     except Exception as e:
         db.session.rollback()
         print(f"Error inicializando owner y owner_key: {e}")
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            return redirect(url_for('dashboard'))
+        flash('Usuario o contraseña incorrectos', 'error')
+        return redirect(url_for('index'))
+
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('index.html')
 
 # RUTAS
 @app.route('/')
@@ -267,6 +282,7 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
