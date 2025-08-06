@@ -1,50 +1,49 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Gateway Selector</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-<h2>Gateway Selector - Bienvenido, {{ username }}</h2>
+<h2>Bienvenido, {{ username }}</h2>
 
 <div>
-    <textarea id="ccs_input" placeholder="Pega aquí las CCs (una por línea)"></textarea><br>
+    <button id="configBtn">Configuración</button>
+    {% if role == 'owner' or role == 'admin' %}
+    <button id="generateKeyBtn">Generar Key</button>
+    <div id="generatedKeys"></div>
+    {% endif %}
+    {% if role == 'owner' %}
+    <div style="margin-top: 20px;">
+        <input type="text" id="newAdminUsername" placeholder="Usuario para Admin">
+        <button id="addAdminBtn">Agregar Admin</button>
+    </div>
+    {% endif %}
+</div>
 
+<textarea id="ccs_input" placeholder="Pega aquí las CCs (una por línea)"></textarea><br>
+
+<div>
     <select id="gateway_select">
         <option value="TEC">TEC</option>
         <option value="RED">RED</option>
         <option value="EM">EM</option>
         <option value="AMAZON">AMAZON</option>
     </select><br>
-
     <div id="cookie_container" style="display: none; margin-top: 10px;">
         <textarea id="cookie_input" placeholder="Pega aquí tu Cookie de Amazon"></textarea><br>
         <button id="save_cookie">Guardar Cookie</button><br>
     </div>
-
     <button id="startBtn">Iniciar Gateway</button>
     <button id="stopBtn">Detener</button>
 </div>
 
-<div style="margin-top: 20px;">
-    <h3>Configuración de Telegram</h3>
-    <input type="text" id="telegram_id_input" placeholder="Pega tu ID de Telegram">
-    <button id="saveTelegramIdBtn">Guardar ID</button>
-</div>
-
-<div id="adminPanel" style="display: none; margin-top: 20px;">
-    <h3>Panel de Administración</h3>
-    <input type="text" id="newAdminIdInput" placeholder="ID de Telegram a agregar como admin">
-    <button id="addAdminBtn">Agregar Admin</button>
-</div>
-
-<div id="progressContainer" style="width: 90%; max-width: 600px; margin-top: 20px; display: none;">
-    <div style="margin-bottom: 10px;" id="progressText">Procesando...</div>
-    <div style="background: #444; width: 100%; height: 20px; border-radius: 10px; overflow: hidden;">
-        <div id="progressBar" style="background: #43e0d9; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
-    </div>
+<div style="margin-top:20px;" id="configPanel" hidden>
+    <input type="text" id="telegram_id_input" placeholder="Tu ID de Telegram">
+    <button id="save_telegram_id_btn">Guardar ID</button>
+    <button id="logoutBtn">Cerrar Sesión</button>
 </div>
 
 <div class="outputs-container">
@@ -54,139 +53,56 @@
     <div class="output error"><h3>ERROR</h3><div id="error_output"></div></div>
 </div>
 
-<button onclick="window.location.href='/logout'" style="margin-top: 30px;">Cerrar Sesión</button>
-
 <script>
     let isRunning = false;
     let amazonCookie = "";
 
-    document.getElementById('gateway_select').addEventListener('change', () => {
-        const gateway = document.getElementById('gateway_select').value;
-        document.getElementById('cookie_container').style.display = (gateway === 'AMAZON') ? 'block' : 'none';
+    document.getElementById('configBtn').addEventListener('click', () => {
+        document.getElementById('configPanel').hidden = !document.getElementById('configPanel').hidden;
     });
 
-    document.getElementById('save_cookie').addEventListener('click', () => {
-        const cookieValue = document.getElementById('cookie_input').value.trim();
-        if (!cookieValue) {
-            alert('⚠️ Pega tu cookie.');
-            return;
-        }
-        amazonCookie = cookieValue;
-        alert('✅ Cookie guardada localmente.');
-    });
-
-    document.getElementById('saveTelegramIdBtn').addEventListener('click', async () => {
+    document.getElementById('save_telegram_id_btn').addEventListener('click', async () => {
         const telegramId = document.getElementById('telegram_id_input').value.trim();
-        if (!telegramId) {
-            alert('⚠️ Pega tu ID de Telegram.');
-            return;
-        }
-        const response = await fetch('/save_telegram_id', {
+        if (!telegramId) return alert('Ingresa tu ID de Telegram');
+        const res = await fetch('/save_telegram_id', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({telegram_id: telegramId})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id: telegramId })
         });
-        const result = await response.json();
-        alert(result.message || result.error);
+        const data = await res.json();
+        alert(data.message);
     });
 
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        window.location.href = '/logout';
+    });
+
+    {% if role == 'owner' or role == 'admin' %}
+    document.getElementById('generateKeyBtn').addEventListener('click', async () => {
+        const res = await fetch('/generate_key', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+            const keysDiv = document.getElementById('generatedKeys');
+            keysDiv.innerHTML += `<div>${data.key}</div>`;
+        } else {
+            alert(data.message);
+        }
+    });
+    {% endif %}
+
+    {% if role == 'owner' %}
     document.getElementById('addAdminBtn').addEventListener('click', async () => {
-        const newAdminId = document.getElementById('newAdminIdInput').value.trim();
-        if (!newAdminId) {
-            alert('⚠️ Pega el ID de Telegram del nuevo admin.');
-            return;
-        }
-        const response = await fetch('/add_admin', {
+        const username = document.getElementById('newAdminUsername').value.trim();
+        if (!username) return alert('Ingresa el nombre de usuario');
+        const res = await fetch('/add_admin', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({telegram_id: newAdminId})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username })
         });
-        const result = await response.json();
-        alert(result.message || result.error);
+        const data = await res.json();
+        alert(data.message);
     });
-
-    document.getElementById('startBtn').addEventListener('click', () => {
-        const ccsInput = document.getElementById('ccs_input').value.trim();
-        if (ccsInput === '') {
-            alert('⚠️ Proporciona algunas CCs para comenzar.');
-            return;
-        }
-        const gateway = document.getElementById('gateway_select').value;
-        if (gateway === 'AMAZON' && !amazonCookie) {
-            alert('⚠️ Debes guardar la cookie de Amazon antes de continuar.');
-            return;
-        }
-        if (isRunning) return;
-        isRunning = true;
-        startChecking();
-    });
-
-    document.getElementById('stopBtn').addEventListener('click', () => {
-        isRunning = false;
-    });
-
-    async function startChecking() {
-        const ccs = document.getElementById('ccs_input').value.trim().split('\\n').filter(cc => cc.trim() !== '');
-        const gateway = document.getElementById('gateway_select').value;
-        const liveOutput = document.getElementById('live_output');
-        const deadOutput = document.getElementById('dead_output');
-        const fundsOutput = document.getElementById('funds_output');
-        const errorOutput = document.getElementById('error_output');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
-
-        liveOutput.innerHTML = '';
-        deadOutput.innerHTML = '';
-        fundsOutput.innerHTML = '';
-        errorOutput.innerHTML = '';
-
-        progressContainer.style.display = 'block';
-        progressText.innerText = `Procesando 0 de ${ccs.length}...`;
-        progressBar.style.width = '0%';
-
-        for (let i = 0; i < ccs.length; i++) {
-            if (!isRunning) break;
-            const cc = ccs[i].trim();
-
-            const response = await fetch('/check', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({cc: cc, gateway: gateway, cookie: amazonCookie})
-            });
-
-            const result = await response.json();
-
-            if (result.status === 'live') {
-                liveOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
-            } else if (result.status === 'dead') {
-                deadOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
-            } else if (result.status === 'insufficient_funds') {
-                fundsOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
-            } else {
-                errorOutput.innerHTML += `<div><strong>${result.cc}</strong> - ${result.message}</div>`;
-            }
-
-            let progress = Math.round(((i + 1) / ccs.length) * 100);
-            progressBar.style.width = `${progress}%`;
-            progressText.innerText = `Procesando ${i + 1} de ${ccs.length}...`;
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        isRunning = false;
-        progressText.innerText = '✅ Proceso finalizado';
-    }
-
-    async function checkIfAdmin() {
-        const response = await fetch('/is_admin');
-        const data = await response.json();
-        if (data.is_admin) {
-            document.getElementById('adminPanel').style.display = 'block';
-        }
-    }
-
-    checkIfAdmin();
+    {% endif %}
 </script>
 
 </body>
