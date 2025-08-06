@@ -1,46 +1,47 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8">
     <title>Gateway Selector</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-<h2>Gateway Selector</h2>
-
-<!-- CONFIGURACIÓN TELEGRAM -->
-<div style="margin-bottom: 20px;">
-    <input type="text" id="telegram_id_input" placeholder="Tu ID de Telegram">
-    <button id="saveTelegramIdBtn">Guardar ID Telegram</button>
-    <button id="logoutBtn">Cerrar Sesión</button>
-</div>
-
-<!-- SOLO ADMINS -->
-<div id="admin_panel" style="display: none; margin-bottom: 20px;">
-    <button id="generateKeyBtn">Generar Key</button>
-    <div id="generated_key" style="margin-top: 10px; color: lime;"></div>
-</div>
-
-<textarea id="ccs_input" placeholder="Pega aquí las CCs (una por línea)"></textarea><br>
+<h2>Gateway Selector - Bienvenido, {{ username }}</h2>
 
 <div>
+    <textarea id="ccs_input" placeholder="Pega aquí las CCs (una por línea)"></textarea><br>
+
     <select id="gateway_select">
         <option value="TEC">TEC</option>
         <option value="RED">RED</option>
         <option value="EM">EM</option>
         <option value="AMAZON">AMAZON</option>
     </select><br>
+
     <div id="cookie_container" style="display: none; margin-top: 10px;">
         <textarea id="cookie_input" placeholder="Pega aquí tu Cookie de Amazon"></textarea><br>
         <button id="save_cookie">Guardar Cookie</button><br>
     </div>
+
     <button id="startBtn">Iniciar Gateway</button>
     <button id="stopBtn">Detener</button>
 </div>
 
+<div style="margin-top: 20px;">
+    <h3>Configuración de Telegram</h3>
+    <input type="text" id="telegram_id_input" placeholder="Pega tu ID de Telegram">
+    <button id="saveTelegramIdBtn">Guardar ID</button>
+</div>
+
+<div id="adminPanel" style="display: none; margin-top: 20px;">
+    <h3>Panel de Administración</h3>
+    <input type="text" id="newAdminIdInput" placeholder="ID de Telegram a agregar como admin">
+    <button id="addAdminBtn">Agregar Admin</button>
+</div>
+
 <div id="progressContainer" style="width: 90%; max-width: 600px; margin-top: 20px; display: none;">
-    <div style="margin-bottom: 10px; color: #eee;" id="progressText">Procesando...</div>
+    <div style="margin-bottom: 10px;" id="progressText">Procesando...</div>
     <div style="background: #444; width: 100%; height: 20px; border-radius: 10px; overflow: hidden;">
         <div id="progressBar" style="background: #43e0d9; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
     </div>
@@ -53,15 +54,15 @@
     <div class="output error"><h3>ERROR</h3><div id="error_output"></div></div>
 </div>
 
+<button onclick="window.location.href='/logout'" style="margin-top: 30px;">Cerrar Sesión</button>
+
 <script>
     let isRunning = false;
     let amazonCookie = "";
 
-    // Mostrar el campo de Cookie si selecciona AMAZON
     document.getElementById('gateway_select').addEventListener('change', () => {
         const gateway = document.getElementById('gateway_select').value;
-        const cookieContainer = document.getElementById('cookie_container');
-        cookieContainer.style.display = (gateway === 'AMAZON') ? 'block' : 'none';
+        document.getElementById('cookie_container').style.display = (gateway === 'AMAZON') ? 'block' : 'none';
     });
 
     document.getElementById('save_cookie').addEventListener('click', () => {
@@ -72,6 +73,36 @@
         }
         amazonCookie = cookieValue;
         alert('✅ Cookie guardada localmente.');
+    });
+
+    document.getElementById('saveTelegramIdBtn').addEventListener('click', async () => {
+        const telegramId = document.getElementById('telegram_id_input').value.trim();
+        if (!telegramId) {
+            alert('⚠️ Pega tu ID de Telegram.');
+            return;
+        }
+        const response = await fetch('/save_telegram_id', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({telegram_id: telegramId})
+        });
+        const result = await response.json();
+        alert(result.message || result.error);
+    });
+
+    document.getElementById('addAdminBtn').addEventListener('click', async () => {
+        const newAdminId = document.getElementById('newAdminIdInput').value.trim();
+        if (!newAdminId) {
+            alert('⚠️ Pega el ID de Telegram del nuevo admin.');
+            return;
+        }
+        const response = await fetch('/add_admin', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({telegram_id: newAdminId})
+        });
+        const result = await response.json();
+        alert(result.message || result.error);
     });
 
     document.getElementById('startBtn').addEventListener('click', () => {
@@ -95,7 +126,7 @@
     });
 
     async function startChecking() {
-        const ccs = document.getElementById('ccs_input').value.trim().split('\n').filter(cc => cc.trim() !== '');
+        const ccs = document.getElementById('ccs_input').value.trim().split('\\n').filter(cc => cc.trim() !== '');
         const gateway = document.getElementById('gateway_select').value;
         const liveOutput = document.getElementById('live_output');
         const deadOutput = document.getElementById('dead_output');
@@ -118,7 +149,13 @@
             if (!isRunning) break;
             const cc = ccs[i].trim();
 
-            const result = await checkGateway(cc, gateway);
+            const response = await fetch('/check', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cc: cc, gateway: gateway, cookie: amazonCookie})
+            });
+
+            const result = await response.json();
 
             if (result.status === 'live') {
                 liveOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
@@ -134,79 +171,22 @@
             progressBar.style.width = `${progress}%`;
             progressText.innerText = `Procesando ${i + 1} de ${ccs.length}...`;
 
-            await sleep(500);
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         isRunning = false;
         progressText.innerText = '✅ Proceso finalizado';
     }
 
-    async function checkGateway(cc, gateway) {
-        try {
-            const response = await fetch('/check', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cc: cc, gateway: gateway, cookie: amazonCookie })
-            });
-            
-            const text = await response.text();
-            try {
-                return JSON.parse(text);
-            } catch (e) {
-                return { status: 'error', message: `Respuesta no JSON del servidor: ${text}`, cc: cc };
-            }
-        } catch (err) {
-            return { status: 'error', message: `Error de conexión: ${err.message}`, cc: cc };
-        }
-    }
-
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // --- NUEVO FUNCIONES TELEGRAM Y ADMIN ---
-    document.getElementById('saveTelegramIdBtn').addEventListener('click', async () => {
-        const telegramId = document.getElementById('telegram_id_input').value.trim();
-        if (!telegramId) {
-            alert('⚠️ Ingresa tu ID de Telegram');
-            return;
-        }
-        const res = await fetch('/save_telegram_id', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegram_id: telegramId })
-        });
-        const data = await res.json();
-        if (data.success) {
-            alert('✅ ID de Telegram guardado');
-        } else {
-            alert('❌ Error: ' + data.error);
-        }
-    });
-
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-        window.location.href = '/logout';
-    });
-
-    document.getElementById('generateKeyBtn').addEventListener('click', async () => {
-        const res = await fetch('/generate_key', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById('generated_key').innerText = 'Key: ' + data.key;
-        } else {
-            alert('❌ Error: ' + data.error);
-        }
-    });
-
     async function checkIfAdmin() {
-        const res = await fetch('/is_admin');
-        const data = await res.json();
+        const response = await fetch('/is_admin');
+        const data = await response.json();
         if (data.is_admin) {
-            document.getElementById('admin_panel').style.display = 'block';
+            document.getElementById('adminPanel').style.display = 'block';
         }
     }
 
-    window.onload = checkIfAdmin;
+    checkIfAdmin();
 </script>
 
 </body>
