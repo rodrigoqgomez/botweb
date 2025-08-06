@@ -37,20 +37,6 @@ class Key(db.Model):
     used = db.Column(db.Boolean, default=False)
     expires_at = db.Column(db.DateTime, nullable=True)
 
-with app.app_context():
-    db.create_all()
-    owner_key = Key.query.filter_by(key='owner_key').first()
-    if not owner_key:
-        owner_key = Key(key='owner_key', used=True)
-        db.session.add(owner_key)
-        db.session.commit()
-
-    owner = User.query.filter_by(username='owner').first()
-    if not owner:
-        owner = User(username='owner', key='owner_key', role='owner', telegram_id='846983753')
-        owner.set_password('Saiper123')
-        db.session.add(owner)
-        db.session.commit()
 
 
 # RUTAS
@@ -243,6 +229,7 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
