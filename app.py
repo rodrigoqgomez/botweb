@@ -31,6 +31,10 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+@app.route('/style.css')
+def style():
+    return send_from_directory('.', 'style.css')
+
 class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(128), unique=True, nullable=False)
@@ -250,3 +254,4 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
