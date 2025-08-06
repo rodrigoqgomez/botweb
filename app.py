@@ -53,30 +53,29 @@ def init_owner_and_key():
             owner_key = Key(key='owner_key', used=True, expires_at=None)
             db.session.add(owner_key)
             db.session.commit()
+
     except Exception as e:
         db.session.rollback()
         print(f"Error inicializando owner y owner_key: {e}")
 
-# RUTA LOGIN / INDEX
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
-            session['user_id'] = user.id
-            return redirect(url_for('dashboard'))
-        flash('Usuario o contraseña incorrectos', 'error')
-        return redirect(url_for('index'))
+# RUTAS
 
+@app.route('/')
+def index():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
-@app.route('/style.css')
-def style():
-    return send_from_directory('.', 'style.css')
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form['username']
+    password = request.form['password']
+    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(password):
+        session['user_id'] = user.id
+        return redirect(url_for('dashboard'))
+    flash('Usuario o contraseña incorrectos', 'error')
+    return redirect(url_for('index'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -90,7 +89,7 @@ def register():
             return redirect(url_for('register'))
 
         key_obj = Key.query.filter_by(key=key_input, used=False).first()
-        if not key_obj or key_obj.expires_at < datetime.utcnow():
+        if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
             flash('La key no es válida, ya fue usada o expiró.', 'error')
             return redirect(url_for('register'))
 
@@ -143,7 +142,7 @@ def redeem_key():
 
     key_input = request.json.get('key').strip()
     key_obj = Key.query.filter_by(key=key_input, used=False).first()
-    if not key_obj or key_obj.expires_at < datetime.utcnow():
+    if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
         return jsonify({'status': 'error', 'message': 'La key es inválida o ya expiró.'}), 400
 
     user = User.query.get(session['user_id'])
@@ -208,7 +207,7 @@ def check_card():
     user = User.query.get(session['user_id'])
     key_obj = Key.query.filter_by(key=user.key).first()
 
-    if not key_obj or key_obj.expires_at < datetime.utcnow():
+    if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
         return jsonify({'status': 'error', 'message': 'No tienes una key activa o tu key ha expirado.'}), 403
 
     data = request.get_json()
