@@ -13,7 +13,7 @@
     <button id="configBtn">Configuración</button>
     {% if role == 'owner' or role == 'admin' %}
     <button id="generateKeyBtn">Generar Key</button>
-    <div id="generatedKeys"></div>
+    <div id="generatedKeys" style="margin-top: 10px;"></div>
     {% endif %}
     {% if role == 'owner' %}
     <div style="margin-top: 20px;">
@@ -53,6 +53,21 @@
     <div class="output error"><h3>ERROR</h3><div id="error_output"></div></div>
 </div>
 
+<!-- Modal para seleccionar duración de Key -->
+<div id="keyModal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center;">
+    <div style="background: #fff; padding: 20px; border-radius: 10px; text-align: center;">
+        <h3>Selecciona la duración de la Key</h3>
+        <select id="keyDurationSelect">
+            <option value="1">1 Día</option>
+            <option value="7">7 Días</option>
+            <option value="15">15 Días</option>
+            <option value="30">30 Días</option>
+        </select><br><br>
+        <button id="confirmGenerateKey">Generar</button>
+        <button onclick="document.getElementById('keyModal').style.display='none'">Cancelar</button>
+    </div>
+</div>
+
 <script>
     let isRunning = false;
     let amazonCookie = "";
@@ -77,16 +92,112 @@
         window.location.href = '/logout';
     });
 
+    document.getElementById('gateway_select').addEventListener('change', () => {
+        const gateway = document.getElementById('gateway_select').value;
+        document.getElementById('cookie_container').style.display = (gateway === 'AMAZON') ? 'block' : 'none';
+    });
+
+    document.getElementById('save_cookie').addEventListener('click', () => {
+        const cookieValue = document.getElementById('cookie_input').value.trim();
+        if (!cookieValue) return alert('⚠️ Pega tu cookie.');
+        amazonCookie = cookieValue;
+        alert('✅ Cookie guardada localmente.');
+    });
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+        const ccsInput = document.getElementById('ccs_input').value.trim();
+        if (ccsInput === '') return alert('⚠️ Proporciona algunas CCs para comenzar.');
+        if (document.getElementById('gateway_select').value === 'AMAZON' && !amazonCookie) {
+            return alert('⚠️ Debes guardar la cookie de Amazon antes de continuar.');
+        }
+        if (isRunning) return;
+        isRunning = true;
+        startChecking();
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', () => {
+        isRunning = false;
+    });
+
+    async function startChecking() {
+        const ccs = document.getElementById('ccs_input').value.trim().split('\n').filter(cc => cc.trim() !== '');
+        const gateway = document.getElementById('gateway_select').value;
+        const liveOutput = document.getElementById('live_output');
+        const deadOutput = document.getElementById('dead_output');
+        const fundsOutput = document.getElementById('funds_output');
+        const errorOutput = document.getElementById('error_output');
+
+        liveOutput.innerHTML = '';
+        deadOutput.innerHTML = '';
+        fundsOutput.innerHTML = '';
+        errorOutput.innerHTML = '';
+
+        for (let i = 0; i < ccs.length; i++) {
+            if (!isRunning) break;
+            const cc = ccs[i].trim();
+
+            const result = await checkGateway(cc, gateway);
+
+            if (result.status === 'live') {
+                liveOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else if (result.status === 'dead') {
+                deadOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else if (result.status === 'insufficient_funds') {
+                fundsOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else {
+                errorOutput.innerHTML += `<div><strong>${result.cc}</strong> - ${result.message}</div>`;
+            }
+
+            await sleep(500);
+        }
+
+        isRunning = false;
+        alert('✅ Proceso finalizado');
+    }
+
+    async function checkGateway(cc, gateway) {
+        try {
+            const response = await fetch('/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cc: cc, gateway: gateway, cookie: amazonCookie })
+            });
+
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                return { status: 'error', message: `Respuesta no JSON del servidor: ${text}`, cc: cc };
+            }
+        } catch (err) {
+            return { status: 'error', message: `Error de conexión: ${err.message}`, cc: cc };
+        }
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     {% if role == 'owner' or role == 'admin' %}
-    document.getElementById('generateKeyBtn').addEventListener('click', async () => {
-        const res = await fetch('/generate_key', { method: 'POST' });
+    document.getElementById('generateKeyBtn').addEventListener('click', () => {
+        document.getElementById('keyModal').style.display = 'flex';
+    });
+
+    document.getElementById('confirmGenerateKey').addEventListener('click', async () => {
+        const days = document.getElementById('keyDurationSelect').value;
+        const res = await fetch('/generate_key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ duration_days: days })
+        });
         const data = await res.json();
         if (data.status === 'success') {
             const keysDiv = document.getElementById('generatedKeys');
-            keysDiv.innerHTML += `<div>${data.key}</div>`;
+            keysDiv.innerHTML += `<div>${data.key} (Expira: ${data.expires_at.split('T')[0]})</div>`;
         } else {
             alert(data.message);
         }
+        document.getElementById('keyModal').style.display = 'none';
     });
     {% endif %}
 
