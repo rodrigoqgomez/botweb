@@ -33,8 +33,7 @@ class Key(db.Model):
     key = db.Column(db.String(50), unique=True, nullable=False)
     used = db.Column(db.Boolean, default=False)
 
-@app.before_first_request
-def setup():
+with app.app_context():
     db.create_all()
     owner = User.query.filter_by(username='owner').first()
     if not owner:
@@ -42,6 +41,7 @@ def setup():
         owner.set_password('Saiper123')
         db.session.add(owner)
         db.session.commit()
+
 
 @app.route('/')
 def index():
@@ -202,3 +202,4 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
