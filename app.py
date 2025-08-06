@@ -98,7 +98,12 @@ def login():
 def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('index'))
-    user = User.query.get(session['user_id'])
+    
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        session.clear()
+        return redirect(url_for('index'))
+
     keys = Key.query.all() if user.role in ['owner', 'admin'] else []
     return render_template('checker.html', username=user.username, role=user.role, keys=keys)
 
@@ -229,6 +234,7 @@ def ping():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
