@@ -93,6 +93,13 @@ body {
 .register-text a:hover {
   text-decoration: underline;
 }
+.form-title {
+  text-align: center;
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: #94a3b8;
+}
+
 
 /* Adaptación a móviles */
 @media (max-width: 480px) {
@@ -104,3 +111,4 @@ body {
     font-size: 2rem;
   }
 }
+
