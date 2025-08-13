@@ -9,7 +9,8 @@ import random
 from flask import session, request, jsonify
 from telegram import Bot
 import requests as req
-import tec, red, em, amazon
+import paypal
+import tec, red, em, amazon,ultra,paypal
 
 
 app = Flask(__name__)
@@ -390,6 +391,10 @@ def check_card():
             result = asyncio.run(red.process_card(cc))
         elif gateway == 'EM':
             result = asyncio.run(em.process_card(cc))
+        elif gateway == 'UL':
+            result = asyncio.run(ultra.process_card(cc))
+        elif gateway == 'PAY':
+            result = asyncio.run(paypal.process_card(cc))
         elif gateway == 'AMAZON':
             result = amazon.procesar_tarjeta_amazon(cc, cookie)
         else:
