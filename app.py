@@ -406,7 +406,7 @@ def check_card():
         if gateway == 'TEC':
             result = asyncio.run(tec.process_card(cc))
         elif gateway == 'RED':
-            result = asyncio.run(red.process_card(cc))
+            result = asyncio.run(red.ccn_gate(cc))
         elif gateway == 'EM':
             result = asyncio.run(em.process_card(cc))
         elif gateway == 'UL':
@@ -504,5 +504,6 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
