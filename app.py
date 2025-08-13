@@ -23,12 +23,11 @@ db = SQLAlchemy(app)
 # MODELOS
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    telegram_id = db.Column(db.String(50), nullable=True)
+    telegram_id = db.Column(db.String(50), nullable=True)  # solo una vez
     verification_code = db.Column(db.String(10), nullable=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(512), nullable=False)
     key = db.Column(db.String(128), db.ForeignKey('key.key'), nullable=True)
-    telegram_id = db.Column(db.String(20), nullable=True)
     role = db.Column(db.String(10), default='user')
 
     def set_password(self, password):
@@ -36,6 +35,7 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
 
 
 
@@ -352,11 +352,19 @@ def ping():
 
 if __name__ == '__main__':
     with app.app_context():
+        print("Eliminando tablas si existen...")
+        # Eliminar tablas
+        User.__table__.drop(db.engine, checkfirst=True)
+        Key.__table__.drop(db.engine, checkfirst=True)
+        
+        print("Creando tablas de nuevo...")
+        db.create_all()
         print("Creando owner y owner_key si no existen...")
         init_owner_and_key()
         print("Proceso de inicialización terminado.")
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
