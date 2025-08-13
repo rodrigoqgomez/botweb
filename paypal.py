@@ -65,21 +65,10 @@ async def paypal(ccsa: str) -> str:
         last = fake.last_name().lower()
 
 
-        proxy_user = "package-310562-country-mx-city-merida-isp-telmex+dsl"
-        proxy_pass = "2P5V1zr0HaKb2zBs"
-        proxy_host = "proxy.soax.com"
-        proxy_port = 5000
-
-            # Crear la URL del proxy
-        proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_host}:{proxy_port}"
-
-            
-
-            # Configurar proxy en la sesión
-        proxies = {
-                "http": proxy_url,
-                "https": proxy_url,
-            }                 
+        username = "geonode_rPnKX90jVA"
+        password = "4f23e1c3-3338-4426-8352-10cea0dc5caf"
+        GEONODE_DNS = "premium-residential.geonode.com:9000"
+        proxies = {"http":"http://{}:{}@{}".format(username, password, GEONODE_DNS)}                     
         session = requests.Session()
         session.proxies = proxies
         
@@ -153,4 +142,3 @@ async def paypal(ccsa: str) -> str:
 
 
             
-
