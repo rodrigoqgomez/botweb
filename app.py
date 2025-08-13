@@ -352,19 +352,14 @@ def ping():
 
 if __name__ == '__main__':
     with app.app_context():
-        print("Eliminando tablas si existen...")
-        # Eliminar tablas
-        User.__table__.drop(db.engine, checkfirst=True)
-        Key.__table__.drop(db.engine, checkfirst=True)
         
-        print("Creando tablas de nuevo...")
-        db.create_all()
         print("Creando owner y owner_key si no existen...")
         init_owner_and_key()
         print("Proceso de inicialización terminado.")
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
