@@ -387,8 +387,7 @@ def ccn_gate(card):
             }
 
             response = c.post('https://redphone.api.koonolmexico.com/payment_cards', headers=headers, json=json_data)
-            print(response.text)
-            data = json.loads(response.text)
+            responsePm = json.loads(response.text)
 
             # Variables por defecto
             status = "error"
@@ -441,3 +440,4 @@ def ccn_gate(card):
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
