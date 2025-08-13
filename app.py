@@ -11,10 +11,11 @@ from telegram import Bot
 import requests as req
 import tec, red, em, amazon
 
+
 app = Flask(__name__)
 app.secret_key = 'tu_secreto_super_seguro'
 CORS(app, resources={r"/*": {"origins": "*"}})
-TELEGRAM_BOT_TOKEN = '7549342155:AAGTeGoCr6s56nckuq8KEDDB7aCKiU5BW3Y'
+TELEGRAM_BOT_TOKEN = '7549342155:AAFhkoxXW4fGQ2wH-695blDAjJ1Z-NpouSE'
 OWNER_TELEGRAM_ID = '846983753'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:cKDrLMbTgKkaYXtNFDgZOgpzbVISnJor@maglev.proxy.rlwy.net:37751/railway'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -201,42 +202,65 @@ import threading
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
 import asyncio
+from telegram.error import BadRequest
 
 import asyncio
+from telegram.error import BadRequest
+
+# Limita la concurrencia para evitar saturar pool HTTP
+semaphore = asyncio.Semaphore(5)  # Ajusta este número según tu pool HTTP
 
 async def send_message(chat_id, message):
-    try:
-        await bot.send_message(chat_id=chat_id, text=message)
-        print(f"Mensaje enviado a {chat_id}")
-        return True
-    except Exception as e:
-        print(f"Error enviando mensaje a {chat_id}: {e}")
-        return False
+    async with semaphore:
+        try:
+            await bot.send_message(chat_id=chat_id, text=message)
+            print(f"Mensaje enviado a {chat_id}")
+            return True
+        except BadRequest as e:
+            if "Chat not found" in str(e):
+                print(f"Chat no encontrado para ID {chat_id}. Eliminando telegram_id de usuario...")
+                user = db.session.query(User).filter_by(telegram_id=str(chat_id)).first()
+                if user:
+                    user.telegram_id = None
+                    try:
+                        db.session.commit()
+                        print(f"Telegram ID {chat_id} eliminado de usuario {user.id}")
+                    except Exception as err:
+                        db.session.rollback()
+                        print(f"Error al eliminar telegram_id: {err}")
+                return False
+            else:
+                print(f"Error enviando mensaje a {chat_id}: {e}")
+                return False
+        except Exception as e:
+            print(f"Error enviando mensaje a {chat_id}: {e}")
+            return False
+
+async def send_all_messages(telegram_ids, message):
+    tasks = [send_message(tid, message) for tid in telegram_ids]
+    results = await asyncio.gather(*tasks)
+    return all(results)
 
 def send_messages_to_multiple(telegram_ids, message):
+    if not isinstance(telegram_ids, list):
+        telegram_ids = [telegram_ids]
+
     try:
         loop = None
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             pass
-        
+
         if loop and loop.is_running():
-            # Si hay loop corriendo (por ejemplo, dentro de un thread en Flask), usa run_coroutine_threadsafe
-            tasks = [bot.send_message(chat_id=tid, text=message) for tid in telegram_ids]
-            futures = [asyncio.run_coroutine_threadsafe(task, loop) for task in tasks]
-            # Esperar resultados
-            for future in futures:
-                future.result()
+            future = asyncio.run_coroutine_threadsafe(send_all_messages(telegram_ids, message), loop)
+            return future.result()
         else:
-            # No hay loop corriendo, crea uno y corre gather para enviar en paralelo
-            async def send_all():
-                await asyncio.gather(*(send_message(tid, message) for tid in telegram_ids))
-            asyncio.run(send_all())
-        return True
+            return asyncio.run(send_all_messages(telegram_ids, message))
     except Exception as e:
         print(f"Error enviando mensajes: {e}")
         return False
+
 
 
 
