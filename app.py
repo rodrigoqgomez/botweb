@@ -394,7 +394,7 @@ def check_card():
         elif gateway == 'UL':
             result = asyncio.run(ultra.process_card(cc))
         elif gateway == 'PAY':
-            result = asyncio.run(paypal.process_card(cc))
+            result = asyncio.run(paypal.paypal(cc))
         elif gateway == 'AMAZON':
             result = amazon.procesar_tarjeta_amazon(cc, cookie)
         else:
