@@ -166,12 +166,13 @@ def generate_key():
         return jsonify({'status': 'error', 'message': 'No tienes permisos para generar keys.'}), 403
 
     duration_days = int(request.json.get('duration_days', 1))
-    new_key_str = os.urandom(6).hex()
+    new_key_str = "Kuriyama-" + os.urandom(6).hex()
     expires_at = datetime.utcnow() + timedelta(days=duration_days)
     new_key = Key(key=new_key_str, expires_at=expires_at)
     db.session.add(new_key)
     db.session.commit()
     return jsonify({'status': 'success', 'key': new_key_str, 'expires_at': expires_at.isoformat()})
+
 
 @app.route('/add_admin', methods=['POST'])
 def add_admin():
