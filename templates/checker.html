@@ -155,6 +155,53 @@
             }
         }
 
+        /* Contenedor principal */
+.container {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    height: auto; /* Desktop normal */
+}
+
+/* Ajustes móviles */
+@media (max-width: 768px) {
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container {
+        flex-direction: column;
+        height: 100vh; /* Full screen en móvil */
+        justify-content: flex-start;
+    }
+
+    .left-panel, .center-panel {
+        width: 100%;
+        flex: 1 1 auto; /* Ocupan todo el espacio disponible */
+        max-height: none; /* Evitar scroll innecesario */
+        border-radius: 0; /* Opcional: bordes sin radio */
+        box-shadow: none; /* Opcional: eliminar sombra */
+    }
+
+    .outputs-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .output {
+        flex: 1 1 auto;
+        max-height: none; /* Full height para outputs */
+    }
+
+    #ccs_input, button, select, input[type=text], textarea {
+        font-size: 16px; /* Más grande en móvil */
+    }
+}
+
+
     </style>
 </head>
 <body>
@@ -476,6 +523,7 @@
 
 </body>
 </html>
+
 
 
 
