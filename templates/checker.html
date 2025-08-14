@@ -394,6 +394,10 @@
         isRunning = false;
     });
 
+    function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     async function startChecking() {
         const ccs = document.getElementById('ccs_input').value.trim().split('\n').filter(cc => cc.trim() !== '');
         const gateway = document.getElementById('gateway_select').value;
@@ -435,13 +439,15 @@
             progressBar.style.width = progressPercent + '%';
             progressBar.textContent = progressPercent + '%';
 
-            await sleep(500);
+            // Delay de 10 segundos entre cada CC (solo si no es la última)
+            if (i < ccs.length - 1) {
+                await sleep(10000);
+            }
         }
 
         isRunning = false;
         progressBar.textContent = '✅ Proceso finalizado';
     }
-
     async function checkGateway(cc, gateway) {
         try {
             const response = await fetch('/check', {
@@ -507,4 +513,5 @@
 
 </body>
 </html>
+
 
