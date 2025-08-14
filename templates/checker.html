@@ -23,12 +23,12 @@
             gap: 15px;
             flex-wrap: wrap;
             justify-content: center;
+            height: auto; /* Desktop normal */
         }
         
         /* Panel izquierdo */
         .left-panel {
-            flex: 1 1 300px; /* crece, pero mínimo 300px */
-            max-width: 350px; /* no se haga demasiado grande */
+            width: 320px;
             background: #fff;
             padding: 15px;
             border-radius: 8px;
@@ -36,11 +36,13 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            flex-shrink: 0;
         }
         
         /* Panel central */
         .center-panel {
-            flex: 2 1 300px; /* crece más que el izquierdo */
+            flex: 1;
+            min-width: 300px;
             background: #fff;
             padding: 15px;
             border-radius: 8px;
@@ -131,78 +133,42 @@
         
         /* Ajustes móviles */
         @media (max-width: 768px) {
+            html, body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+        
             .container {
-                flex-direction: row; /* seguir en hilera si hay espacio */
-                flex-wrap: wrap;
-                gap: 10px;
+                flex-direction: column;
+                height: 100vh; /* Full screen en móvil */
+                justify-content: flex-start;
             }
+        
             .left-panel, .center-panel {
-                flex: 1 1 45%; /* ocupan casi la mitad de la pantalla */
-                min-width: 220px; /* nunca demasiado pequeño */
+                width: 100%;
+                flex: 1 1 auto; /* Ocupan todo el espacio disponible */
+                max-height: none; /* Evitar scroll innecesario */
+                border-radius: 0; /* Opcional: bordes sin radio */
+                box-shadow: none; /* Opcional: eliminar sombra */
             }
+        
             .outputs-container {
-                flex-direction: row;
-                flex-wrap: wrap;
-                gap: 10px;
+                flex-direction: column;
+                gap: 8px;
             }
+        
             .output {
-                flex: 1 1 100%; /* ocupar todo el ancho disponible en móviles */
-                max-height: none;
-                min-height: 120px;
+                flex: 1 1 auto;
+                max-height: none; /* Full height para outputs */
             }
-            #ccs_input {
-                min-height: 120px; /* más grande para escribir cómodamente */
+        
+            #ccs_input, button, select, input[type=text], textarea {
+                font-size: 16px; /* Más grande en móvil */
             }
         }
+        </style>
 
-        /* Contenedor principal */
-.container {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    justify-content: center;
-    height: auto; /* Desktop normal */
-}
-
-/* Ajustes móviles */
-@media (max-width: 768px) {
-    html, body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-    }
-
-    .container {
-        flex-direction: column;
-        height: 100vh; /* Full screen en móvil */
-        justify-content: flex-start;
-    }
-
-    .left-panel, .center-panel {
-        width: 100%;
-        flex: 1 1 auto; /* Ocupan todo el espacio disponible */
-        max-height: none; /* Evitar scroll innecesario */
-        border-radius: 0; /* Opcional: bordes sin radio */
-        box-shadow: none; /* Opcional: eliminar sombra */
-    }
-
-    .outputs-container {
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .output {
-        flex: 1 1 auto;
-        max-height: none; /* Full height para outputs */
-    }
-
-    #ccs_input, button, select, input[type=text], textarea {
-        font-size: 16px; /* Más grande en móvil */
-    }
-}
-
-
-    </style>
 </head>
 <body>
 
@@ -523,6 +489,7 @@
 
 </body>
 </html>
+
 
 
 
