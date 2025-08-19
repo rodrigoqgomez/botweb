@@ -17,7 +17,7 @@ def procesar_tarjeta_amazon(card, cookie):
         "https": proxy_url
     }
 
-    url = "https://deepchk-apis.alwaysdata.net/Amazon.php"
+    url = "https://apis-deepchk.alwaysdata.net/the-crow/Amazon.php"
     headers = {
         'User-Agent': 'Mozilla/5.0',
         'Accept': 'application/json, text/plain, */*',
@@ -100,3 +100,4 @@ def procesar_tarjeta_amazon(card, cookie):
             "message": f"❌ Error al procesar tarjeta: {str(e)}",
             "cc": card
         }
+
