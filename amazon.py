@@ -10,7 +10,7 @@ def procesar_tarjeta_amazon(card, cookie):
     proxy_host = "proxy.soax.com"
     proxy_port = 5000
 
-    proxy_url = f"http://{usuariop}:{contraseña}@{host}:{puerto}"
+    proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_host}:{proxy_port}"
 
     session.proxies = {
         "http": proxy_url,
@@ -100,6 +100,7 @@ def procesar_tarjeta_amazon(card, cookie):
             "message": f"❌ Error al procesar tarjeta: {str(e)}",
             "cc": card
         }
+
 
 
 
