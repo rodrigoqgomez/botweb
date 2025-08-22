@@ -22,8 +22,8 @@ def procesar_tarjeta_amazon(card, cookie):
         'User-Agent': 'Mozilla/5.0',
         'Accept': 'application/json, text/plain, */*',
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Origin': 'https://deepchk-apis.alwaysdata.net',
-        'Referer': 'https://deepchk-apis.alwaysdata.net'
+        'Origin': 'https://panel.deep-chk.com/renta-apis/the-crow/Amazon.php',
+        'Referer': 'https://panel.deep-chk.com/renta-apis/the-crow/Amazon.php'
     }
     data = {
         "lista": card,
@@ -100,5 +100,6 @@ def procesar_tarjeta_amazon(card, cookie):
             "message": f"❌ Error al procesar tarjeta: {str(e)}",
             "cc": card
         }
+
 
 
