@@ -10,7 +10,7 @@ from flask import session, request, jsonify
 from telegram import Bot
 import requests as req
 import paypal
-import tec, red, em, amazon,ultra,paypal,emovil
+import tec, red, em, amazon,ultra,paypal,emovil,md
 import asyncio
 import threading
 import time
@@ -411,6 +411,8 @@ def check_card():
             result = asyncio.run(em.process_card(cc))
         elif gateway == 'emovil':
             result = asyncio.run(emovil.process_card(cc))
+        elif gateway == 'MD':
+            result = asyncio.run(md.process_card(cc))
         elif gateway == 'UL':
             result = asyncio.run(ultra.process_card(cc))
         elif gateway == 'PAY':
@@ -506,6 +508,7 @@ if __name__ == '__main__':
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
