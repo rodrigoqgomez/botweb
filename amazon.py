@@ -17,13 +17,13 @@ def procesar_tarjeta_amazon(card, cookie):
         "https": proxy_url
     }
 
-    url = "https://panel.deep-chk.com/renta-apis/the-crow/Amazon.php"
+    url = "https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php"
     headers = {
         'User-Agent': 'Mozilla/5.0',
         'Accept': 'application/json, text/plain, */*',
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Origin': 'https://panel.deep-chk.com/renta-apis/the-crow/Amazon.php',
-        'Referer': 'https://panel.deep-chk.com/renta-apis/the-crow/Amazon.php'
+        'Origin': 'https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php',
+        'Referer': 'https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php'
     }
     data = {
         "lista": card,
