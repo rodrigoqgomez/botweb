@@ -12,10 +12,7 @@ def procesar_tarjeta_amazon(card, cookie):
 
     proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_host}:{proxy_port}"
 
-    session.proxies = {
-        "http": proxy_url,
-        "https": proxy_url
-    }
+    
 
     url = "https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php"
     headers = {
