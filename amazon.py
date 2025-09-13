@@ -14,13 +14,13 @@ def procesar_tarjeta_amazon(card, cookie):
 
     
 
-    url = "https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php"
+    url = "https://leviatan-chk.site/amazon/leviatan"
     headers = {
         'User-Agent': 'Mozilla/5.0',
         'Accept': 'application/json, text/plain, */*',
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Origin': 'https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php',
-        'Referer': 'https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php'
+        'Origin': 'https://leviatan-chk.site/amazon/leviatan',
+        'Referer': 'https://leviatan-chk.site/amazon/leviatan'
     }
     data = {
         "lista": card,
