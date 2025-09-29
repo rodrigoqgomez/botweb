@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Instalar dependencias de Playwright
+# Actualizar repositorios e instalar dependencias de Linux para Playwright
 apt-get update && apt-get install -y \
     libgtk-3-0 \
+    libgtk-4-1 \
     libgdk-pixbuf2.0-0 \
     libglib2.0-0 \
     libnss3 \
@@ -31,10 +32,28 @@ apt-get update && apt-get install -y \
     libdbus-1-3 \
     libexpat1 \
     libxkbcommon0 \
-    libpango-1.0-0
+    libpango-1.0-0 \
+    libgstreamer-1.0-0 \
+    libgstreamer-plugins-base1.0-0 \
+    libvpx7 \
+    libwoff2-1 \
+    libxslt1.1 \
+    libatomic1 \
+    libopus0 \
+    libflite1 \
+    libwebpdemux2 \
+    libavif15 \
+    libharfbuzz-icu0 \
+    libwebpmux3 \
+    libenchant-2-2 \
+    libsecret-1-0 \
+    libhyphen0 \
+    libnghttp2-14 \
+    libgles2 \
+    libx264-163
 
 # Instalar navegadores de Playwright
 playwright install
 
-# Ejecutar tu aplicación
+# Ejecutar la aplicación
 python app.py
