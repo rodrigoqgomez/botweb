@@ -2,6 +2,8 @@
 
 # Instalar dependencias de Playwright
 apt-get update && apt-get install -y \
+    libgtk-3-0 \
+    libgdk-pixbuf2.0-0 \
     libglib2.0-0 \
     libnss3 \
     libgconf-2-4 \
