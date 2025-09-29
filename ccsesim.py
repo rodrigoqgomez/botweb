@@ -19,10 +19,15 @@ def generate_password(pwd_length=10):
 # Función principal que ejecuta la automatización con Playwright
 async def process_card(card):
     cc, mes, ano_number, cvv = card.split('|')
-    if len(ano_number) == 2: ano_number = "20"+ano_number
+    if len(ano_number) == 2:
+        ano_number = "20" + ano_number
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled'])
+        # Usar 'p' en lugar de 'playwright'
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox"]
+        )
         context = await browser.new_context()
         page = await context.new_page()
         try:
@@ -95,4 +100,5 @@ async def process_card(card):
             respuesta = f"{cc}|{mes}|{ano_number}|{cvv}\n | Error: {e}"
             print(f"Error: {respuesta}")
             await browser.close()
+
             return respuesta
