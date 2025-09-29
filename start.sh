@@ -1,4 +1,10 @@
 #!/bin/bash
+# Instala dependencias
 pip install -r requirements.txt
+
+# Instala Chromium para Playwright
 playwright install chromium
-python main.py
+
+# Ejecuta tu aplicación
+python app.py
+
