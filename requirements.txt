@@ -76,8 +76,8 @@ psycopg2-binary
 requests
 faker
 playwright
-playwright install chromium
 beautifulsoup4
+
 
 
 
